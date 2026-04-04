@@ -1,0 +1,24 @@
+data/
+# Exclude large files and common large file types
+*.csv
+*.npy
+*.npz
+*.pth
+*.h5
+*.zip
+*.tar
+*.tar.gz
+*.7z
+*.rar
+*.exe
+*.dll
+*.iso
+*.mp4
+*.mov
+*.avi
+*.mkv
+*.wav
+*.flac
+*.ogg
+*.log
+*.tmp
