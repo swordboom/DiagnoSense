@@ -24,7 +24,11 @@ np.random.seed(SEED)
 
 DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data")
 HEALTH_PATH = os.path.join(DATA_DIR, "health_dataset.csv")
+<<<<<<< HEAD
 MEDICINE_PATH = os.path.join(DATA_DIR, "medicine_dataset.csv")
+=======
+DRUG_PATH = os.path.join(DATA_DIR, "drug_side_effects.csv")
+>>>>>>> cf7f0e2dd4e9abce61dc282328a720a26f5c6895
 
 lemmatizer = WordNetLemmatizer()
 stop_words = set(stopwords.words('english'))
@@ -176,6 +180,7 @@ def clean_health_dataset():
 
 
 # ============================================================
+<<<<<<< HEAD
 # DATASET 2: Medicine Dataset Cleaning
 # ============================================================
 def clean_medicine_dataset():
@@ -215,10 +220,121 @@ def clean_medicine_dataset():
         all_side_effects.update(se_list)
         
     MIN_FREQUENCY = 50 # Filter noise for a 250k dataset
+=======
+# DATASET 2: Drug Side Effects Cleaning
+# ============================================================
+def extract_side_effects(text):
+    """Extract individual side effects from free-text description."""
+    if pd.isna(text) or not str(text).strip():
+        return []
+    
+    text = str(text).lower()
+    
+    # Common side effect patterns - extract from "Common * side effects may include:" section
+    common_match = re.search(r'common\s+\w*\s*side effects?\s*(?:of\s+\w+\s*)?(?:may\s+)?include[:\s]*(.*?)(?:\.|$)', text, re.DOTALL)
+    
+    side_effects = []
+    
+    if common_match:
+        common_text = common_match.group(1)
+        # Split by semicolons, "or", newlines
+        parts = re.split(r'[;]|\bor\b', common_text)
+        for part in parts:
+            part = part.strip()
+            # Clean up
+            part = re.sub(r'\([^)]*\)', '', part)
+            part = re.sub(r'[^a-z\s\-,]', '', part)
+            part = re.sub(r'\s+', ' ', part).strip()
+            # Split by commas for multiple effects in one segment
+            sub_parts = [p.strip() for p in part.split(',')]
+            for sp in sub_parts:
+                sp = sp.strip()
+                if len(sp) > 2 and len(sp) < 60:
+                    side_effects.append(sp)
+    
+    # Also try to extract from the general text if no "common" section found
+    if not side_effects:
+        # Look for symptom-like phrases
+        keywords = ['nausea', 'vomiting', 'diarrhea', 'headache', 'dizziness',
+                    'rash', 'itching', 'fatigue', 'drowsiness', 'insomnia',
+                    'constipation', 'dry mouth', 'weight gain', 'weight loss',
+                    'fever', 'cough', 'stomach pain', 'muscle pain', 'joint pain',
+                    'swelling', 'bleeding', 'bruising', 'hair loss', 'skin rash',
+                    'chest pain', 'back pain', 'appetite loss', 'tremor',
+                    'anxiety', 'depression', 'confusion', 'blurred vision']
+        for kw in keywords:
+            if kw in text:
+                side_effects.append(kw)
+    
+    # Deduplicate
+    seen = set()
+    unique = []
+    for se in side_effects:
+        if se not in seen:
+            seen.add(se)
+            unique.append(se)
+    
+    return unique
+
+
+def clean_drug_dataset():
+    print("=" * 70)
+    print("  CLEANING DATASET 2: drug_side_effects.csv")
+    print("=" * 70)
+    
+    df = pd.read_csv(DRUG_PATH, quotechar='"', on_bad_lines='warn')
+    
+    print(f"\n  BEFORE Cleaning:")
+    print(f"    Shape: {df.shape}")
+    print(f"    Missing values per key column:")
+    key_cols = ['drug_name', 'medical_condition', 'side_effects', 'generic_name', 'drug_classes']
+    for col in key_cols:
+        if col in df.columns:
+            m = df[col].isnull().sum()
+            print(f"      {col:25s}: {m:5d} ({m/len(df)*100:.1f}%)")
+    
+    # --- Step 1: Remove rows with no side effects ---
+    before = len(df)
+    df = df.dropna(subset=['side_effects']).reset_index(drop=True)
+    print(f"\n  Step 1 - Remove rows without side_effects: {before} -> {len(df)} ({before - len(df)} removed)")
+    
+    # --- Step 2: Remove exact duplicates ---
+    before_dup = len(df)
+    df = df.drop_duplicates(subset=['drug_name', 'medical_condition']).reset_index(drop=True)
+    print(f"  Step 2 - Remove duplicates (drug+condition): {before_dup} -> {len(df)} ({before_dup - len(df)} removed)")
+    
+    # --- Step 3: Normalize drug names ---
+    df['drug_name_clean'] = df['drug_name'].str.lower().str.strip()
+    df['medical_condition_clean'] = df['medical_condition'].str.lower().str.strip()
+    print(f"  Step 3 - Drug and condition names normalized")
+    
+    # --- Step 4: Extract individual side effects ---
+    print(f"  Step 4 - Extracting individual side effects from text...")
+    df['side_effects_list'] = df['side_effects'].apply(extract_side_effects)
+    df['side_effects_count'] = df['side_effects_list'].apply(len)
+    df['side_effects_clean'] = df['side_effects_list'].apply(lambda x: ', '.join(x))
+    
+    # Remove rows with no extracted side effects
+    before_se = len(df)
+    df = df[df['side_effects_count'] > 0].reset_index(drop=True)
+    print(f"         Rows with extracted side effects: {len(df)} / {before_se}")
+    
+    # --- Step 5: Build multi-label targets ---
+    print(f"  Step 5 - Building multi-label binary matrix...")
+    
+    # Collect all unique side effects
+    all_side_effects = set()
+    for se_list in df['side_effects_list']:
+        all_side_effects.update(se_list)
+    
+    # Filter to side effects that appear in at least N drugs (reduce noise)
+    MIN_FREQUENCY = 10
+>>>>>>> cf7f0e2dd4e9abce61dc282328a720a26f5c6895
     se_counts = {}
     for se_list in df['side_effects_list']:
         for se in se_list:
             se_counts[se] = se_counts.get(se, 0) + 1
+<<<<<<< HEAD
             
     frequent_se = sorted([se for se, c in se_counts.items() if c >= MIN_FREQUENCY])
     print(f"  Total unique side effects: {len(all_side_effects)}, Frequent (>={MIN_FREQUENCY}): {len(frequent_se)}")
@@ -265,6 +381,88 @@ def clean_medicine_dataset():
     
     print(f"  ✅ Saved cleaned medicine dataset: {clean_path}")
     print(f"  ✅ Saved label matrix: {y_path} shape: {y_matrix.shape}")
+=======
+    
+    frequent_se = sorted([se for se, c in se_counts.items() if c >= MIN_FREQUENCY])
+    print(f"         Total unique side effects: {len(all_side_effects)}")
+    print(f"         Frequent (>={MIN_FREQUENCY} occurrences): {len(frequent_se)}")
+    
+    # Create binary matrix
+    from sklearn.preprocessing import MultiLabelBinarizer
+    mlb = MultiLabelBinarizer(classes=frequent_se)
+    
+    # Filter each row's side effects to only include frequent ones
+    df['side_effects_filtered'] = df['side_effects_list'].apply(
+        lambda x: [se for se in x if se in set(frequent_se)]
+    )
+    
+    y_matrix = mlb.fit_transform(df['side_effects_filtered'])
+    
+    print(f"         Multi-label matrix shape: {y_matrix.shape}")
+    print(f"         Avg labels per drug: {y_matrix.sum(axis=1).mean():.1f}")
+    
+    # Save MLB
+    models_dir = os.path.join(os.path.dirname(DATA_DIR), "models")
+    os.makedirs(models_dir, exist_ok=True)
+    with open(os.path.join(models_dir, 'side_effects_mlb.pkl'), 'wb') as f:
+        pickle.dump(mlb, f)
+    
+    # --- Step 6: Create input features ---
+    print(f"  Step 6 - Creating input text feature...")
+    
+    # Combine drug_name + medical_condition + drug_classes as input
+    def create_drug_input(row):
+        parts = []
+        if pd.notna(row.get('drug_name_clean', None)):
+            parts.append(str(row['drug_name_clean']))
+        if pd.notna(row.get('medical_condition_clean', None)):
+            parts.append(str(row['medical_condition_clean']))
+        if pd.notna(row.get('generic_name', None)):
+            parts.append(str(row['generic_name']).lower())
+        if pd.notna(row.get('drug_classes', None)):
+            parts.append(str(row['drug_classes']).lower())
+        return ' '.join(parts)
+    
+    df['input_text'] = df.apply(create_drug_input, axis=1)
+    df['input_text_clean'] = df['input_text'].apply(normalize_text)
+    
+    # AFTER stats
+    print(f"\n  AFTER Cleaning:")
+    print(f"    Shape: {df.shape}")
+    print(f"    Unique drugs: {df['drug_name_clean'].nunique()}")
+    print(f"    Unique conditions: {df['medical_condition_clean'].nunique()}")
+    print(f"    Side effect labels: {len(frequent_se)}")
+    
+    print(f"\n    Top 20 most frequent side effects:")
+    se_freq = sorted(se_counts.items(), key=lambda x: -x[1])
+    for se, count in se_freq[:20]:
+        marker = "✅" if count >= MIN_FREQUENCY else "  "
+        print(f"      {marker} {se:35s}: {count:4d}")
+    
+    print(f"\n    Sample cleaned rows:")
+    for i in range(3):
+        print(f"      [{i}] Drug: {df['drug_name'].iloc[i]}")
+        print(f"          Condition: {df['medical_condition'].iloc[i]}")
+        print(f"          Input text: {df['input_text'].iloc[i][:80]}...")
+        print(f"          Side effects: {df['side_effects_clean'].iloc[i][:80]}...")
+        print(f"          Labels count: {df['side_effects_count'].iloc[i]}")
+        print()
+    
+    # Save cleaned dataset
+    df_save = df[['drug_name', 'drug_name_clean', 'medical_condition', 'medical_condition_clean',
+                   'generic_name', 'drug_classes', 'input_text', 'input_text_clean',
+                   'side_effects_clean', 'side_effects_count']].copy()
+    
+    clean_path = os.path.join(DATA_DIR, "drug_side_effects_cleaned.csv")
+    df_save.to_csv(clean_path, index=False)
+    print(f"  ✅ Saved cleaned dataset: {clean_path}")
+    
+    # Save the multi-label binary matrix
+    y_path = os.path.join(DATA_DIR, "drug_side_effects_labels.npy")
+    np.save(y_path, y_matrix)
+    print(f"  ✅ Saved label matrix: {y_path} (shape: {y_matrix.shape})")
+    print(f"     Final shape: {df_save.shape}")
+>>>>>>> cf7f0e2dd4e9abce61dc282328a720a26f5c6895
     
     return df_save, y_matrix, frequent_se
 
@@ -283,7 +481,11 @@ if __name__ == "__main__":
     print()
     
     # Clean Dataset 2
+<<<<<<< HEAD
     df_drug, y_matrix, se_labels = clean_medicine_dataset()
+=======
+    df_drug, y_matrix, se_labels = clean_drug_dataset()
+>>>>>>> cf7f0e2dd4e9abce61dc282328a720a26f5c6895
     
     # Final Summary
     print("\n" + "=" * 70)
@@ -302,7 +504,11 @@ if __name__ == "__main__":
   └─────────────────────────────────────────────────────────────────┘
 
   ┌─────────────────────────────────────────────────────────────────┐
+<<<<<<< HEAD
   │  Dataset 2: medicine_cleaned.csv                               │
+=======
+  │  Dataset 2: drug_side_effects_cleaned.csv                      │
+>>>>>>> cf7f0e2dd4e9abce61dc282328a720a26f5c6895
   ├─────────────────────────────────────────────────────────────────┤
   │  Rows              : {df_drug.shape[0]:>10,}                              │
   │  Columns           : {df_drug.shape[1]:>10}                              │
@@ -310,9 +516,15 @@ if __name__ == "__main__":
   │  Target labels     : {len(se_labels):>10} side effects                     │
   │  Label matrix      : {y_matrix.shape}                         │
   │  Avg labels/sample : {y_matrix.sum(axis=1).mean():>10.1f}                              │
+<<<<<<< HEAD
   │  Saved files       : medicine_cleaned.csv                      │
   │                     : medicine_labels.npy                       │
   │                     : medicine_se_mlb.pkl                       │
+=======
+  │  Saved files       : drug_side_effects_cleaned.csv             │
+  │                     : drug_side_effects_labels.npy              │
+  │                     : side_effects_mlb.pkl                      │
+>>>>>>> cf7f0e2dd4e9abce61dc282328a720a26f5c6895
   └─────────────────────────────────────────────────────────────────┘
 
   ✅ PHASE 2 COMPLETE — Awaiting approval to proceed to Phase 3
