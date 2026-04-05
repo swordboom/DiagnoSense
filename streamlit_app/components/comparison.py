@@ -9,12 +9,14 @@ def render_comparison_page():
     st.subheader("Architectural Comparison")
     
     arch_data = [
-        {"Feature": "Target Pipeline", "Model 1": "Health (Symptom → Disease)", "Model 2": "Drug (Context → Side Effects)"},
-        {"Feature": "Input Dynamics", "Model 1": "TF-IDF Max 5000 (Symptom Combos)", "Model 2": "TF-IDF Max 10000 (Drug/Condition Context)"},
-        {"Feature": "Network Strategy", "Model 1": "MLP (512 → 256) + BatchNorm + Dropout", "Model 2": "MLP (1024 → 512) + BatchNorm + Dropout"},
-        {"Feature": "Output Space", "Model 1": "Mutually Exclusive (1 of 16 Classes)", "Model 2": "Independent Multi-Label (Subset of 154)"},
+        {"Feature": "Target Pipeline", "Model 1": "Health (Symptom to Disease)", "Model 2": "Medicine (Context to Side Effects)"},
+        {"Feature": "Training Dataset", "Model 1": "health_dataset.csv (12,091 rows)", "Model 2": "medicine_dataset.csv (248,218 rows)"},
+        {"Feature": "Input Feature", "Model 1": "TF-IDF Max 5,000 (symptom text)", "Model 2": "TF-IDF Max 10,000 (name, uses, class)"},
+        {"Feature": "Network Architecture", "Model 1": "MLP 512-256 + BatchNorm + Dropout", "Model 2": "MLP 1024-512 + BatchNorm + Dropout"},
+        {"Feature": "Output Space", "Model 1": "Mutually exclusive (1 of 16 classes)", "Model 2": "Independent multi-label (550 side effects)"},
         {"Feature": "Loss Function", "Model 1": "Weighted CrossEntropyLoss", "Model 2": "BCEWithLogitsLoss"},
-        {"Feature": "Structural Challenge", "Model 1": "Extreme Class Imbalance", "Model 2": "High Label Cardinality and Sparsity"}
+        {"Feature": "Inference Threshold", "Model 1": "Argmax (softmax)", "Model 2": "P > 0.5 (sigmoid)"},
+        {"Feature": "Key Challenge", "Model 1": "Extreme class imbalance", "Model 2": "High label cardinality and sparsity"}
     ]
     st.table(arch_data)
     
@@ -29,7 +31,8 @@ def render_comparison_page():
         st.caption("Evaluated on 1,814 stratified test samples.")
         
     with col2:
-        st.markdown("**Model 2: Side Effects Prediction**")
-        st.metric(label="Micro F1-Score", value="64.81%")
-        st.metric(label="Samples F1-Score", value="62.99%")
-        st.caption("Evaluated on 420 random test samples.")
+        st.markdown("**Model 2: Medicine Side Effects Prediction**")
+        st.metric(label="Micro F1-Score", value="94.79%")
+        st.metric(label="Samples F1-Score", value="94.91%")
+        st.metric(label="Macro F1-Score", value="89.44%")
+        st.caption("Evaluated on 37,233 stratified test samples. 550 label classes.")
