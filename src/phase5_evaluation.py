@@ -197,7 +197,7 @@ This document summarizes the final evaluation metrics for the **DiagnoSense** Ma
     with open(report_path, "w", encoding="utf-8") as f:
         f.write(content)
         
-    print(f"  ✅ Report saved to: {report_path}")
+    print(f"  [DONE] Report saved to: {report_path}")
 
 # ============================================================
 # MAIN
@@ -206,4 +206,4 @@ if __name__ == "__main__":
     h_metrics = evaluate_health()
     d_metrics = evaluate_medicine()
     generate_report(h_metrics, d_metrics)
-    print("\n  [DONE] PHASE 5 COMPLETE — Evaluation report generated.")
+    print("\n  [DONE] PHASE 5 COMPLETE - Evaluation report generated.")

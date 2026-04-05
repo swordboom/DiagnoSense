@@ -198,7 +198,7 @@ def train_health_pipeline():
     model_path = os.path.join(MODELS_DIR, "health_model.pth")
     print(f"  Training started (Input Dims: {X_train.shape[1]})")
     model = train_model(model, train_loader, val_loader, criterion, optimizer, EPOCHS_HEALTH, model_path)
-    print("  ✅ Health Model Training Complete")
+    print("  [DONE] Health Model Training Complete")
 
 def train_medicine_pipeline():
     print("\n" + "=" * 70)
@@ -226,7 +226,7 @@ def train_medicine_pipeline():
     model_path = os.path.join(MODELS_DIR, "medicine_model.pth")
     print(f"  Training started (Input Dims: {X_train.shape[1]}, Labels: {num_labels})")
     model = train_model(model, train_loader, val_loader, criterion, optimizer, EPOCHS_DRUG, model_path)
-    print("  ✅ Medicine Side Effects Model Training Complete")
+    print("  [DONE] Medicine Side Effects Model Training Complete")
 
 # ============================================================
 # MAIN
@@ -234,4 +234,4 @@ def train_medicine_pipeline():
 if __name__ == "__main__":
     train_health_pipeline()
     train_medicine_pipeline()
-    print("\n  [DONE] PHASE 4 COMPLETE — Models saved to models/ directory.")
+    print("\n  [DONE] PHASE 4 COMPLETE - Models saved to models/ directory.")

@@ -14,14 +14,14 @@ def render_home_page():
     
     st.subheader("Model Overview")
     st.markdown("""
-    1. **Disease Prediction**: Predicts an underlying condition out of 16 highly imbalanced target classes based on a textual profile of comma-separated patient symptoms.
-    2. **Drug Side Effects Prediction**: Given a drug and its therapeutic context, simultaneously infers multiple potential side effects out of an independent 154-label space.
+    1. **Disease Prediction** - Predicts an underlying condition out of 16 disease classes based on a textual profile of comma-separated patient symptoms. Trained on `health_dataset.csv`.
+    2. **Medicine Side Effects Prediction** - Given a medicine name and its therapeutic context, simultaneously infers multiple potential side effects across 550 possible labels. Trained on `medicine_dataset.csv` (248,000+ records).
     """)
     
     st.subheader("Instructions")
     st.markdown("""
-    - Use the **Sidebar Navigation** to switch between inference interfaces and evaluation reports.
-    - Enter descriptive symptoms in the Disease Prediction tab separated by commas.
-    - Provide contextual information along with a precise drug name in the Side Effects tab to narrow down probability estimations.
-    - Consult the **Model Comparison** and **Reports** pages for an in-depth look into the architectural trade-offs, Test Set evaluations, and exact execution details of the pipelines.
+    - Use the **Sidebar Navigation** to switch between modules.
+    - In **Disease Prediction**, enter a comma-separated list of patient symptoms to receive a ranked list of probable conditions.
+    - In **Medicine Side Effects Prediction**, enter a medicine name and optional context (uses, chemical class, therapeutic class) to infer probable side effects.
+    - Consult **Model Comparison** and **Reports** for architectural details and test-set evaluation metrics.
     """)

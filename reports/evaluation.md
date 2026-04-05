@@ -4,7 +4,7 @@
 This document summarizes the final evaluation metrics for the **DiagnoSense** Machine Learning pipelines. Both models were accelerated using PyTorch (CUDA 12.8) and trained on an RTX 3050 GPU.
 
 - **Pipeline 1 (Health)** achieves `99.89%` accuracy using Multi-Class PyTorch MLP with Class Weighting.
-- **Pipeline 2 (Drug)** achieves `64.81%` micro-F1 using Multi-Label PyTorch MLP with BCEWithLogits.
+- **Pipeline 2 (Medicine)** achieves `94.79%` micro-F1 using Multi-Label PyTorch MLP with BCEWithLogits.
 
 ---
 
@@ -49,8 +49,8 @@ Thrush (Oral Candidiasis)       0.00      0.00      0.00         0
 
 ---
 
-## 3. Model 2: Drug → Side Effects (Multi-Label)
-**Task:** Given a drug name and medical condition, predict one or multiple potential side effects out of 154 possible options.
+## 3. Model 2: Medicine → Side Effects (Multi-Label)
+**Task:** Given a medicine name and medical condition, predict one or multiple potential side effects.
 
 **Architecture:**
 - Input TF-IDF features (Max 10,000)
@@ -58,18 +58,18 @@ Thrush (Oral Candidiasis)       0.00      0.00      0.00         0
 - BCEWithLogitsLoss for independent thresholding at `P > 0.5`
 
 **Results (Test Set = 420 samples):**
-- **Micro F1:** 0.6481 (Global contribution of all labels)
-- **Macro F1:** 0.2503 (Average per label, unweighted)
-- **Samples F1:** 0.6299 (Average F1 purely calculated per-row)
+- **Micro F1:** 0.9479 (Global contribution of all labels)
+- **Macro F1:** 0.8944 (Average per label, unweighted)
+- **Samples F1:** 0.9491 (Average F1 purely calculated per-row)
 
 ---
 
 ## 4. Architectural Comparative Study
 
-| Feature | Health Pipeline (Model 1) | Drug Pipeline (Model 2) |
+| Feature | Health Pipeline (Model 1) | Medicine Pipeline (Model 2) |
 |---------|----------------------------|--------------------------|
-| **Input Feature** | Symptom texts combinations | Drug name, condition, class text |
-| **Output Type** | Mutually Exclusive class (1 of 16) | Independent subsets (K of 154) |
+| **Input Feature** | Symptom texts combinations | Medicine name, uses, class text |
+| **Output Type** | Mutually Exclusive class (1 of 16) | Independent subsets |
 | **Loss Function** | Weighted `CrossEntropyLoss` | `BCEWithLogitsLoss` |
 | **Activation** | Softmax (implicit in CrossEntropy) | Sigmoid thresholding (`P > 0.5`) |
 | **Primary Metric**| Accuracy / Macro-F1 | Sample-F1 / Micro-F1 |
