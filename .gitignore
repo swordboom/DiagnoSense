@@ -22,3 +22,12 @@ data/
 *.ogg
 *.log
 *.tmp
+
+src/__pycache__/
+*.pyc
+
+streamlit_app/components/__pycache__/
+*.pyc
+
+streamlit_app/utils/__pycache__/
+*.pyc
