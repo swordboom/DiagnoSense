@@ -1,0 +1,219 @@
+{
+  "health": {
+    "test_accuracy": 0.6866666666666666,
+    "macro_f1": 0.6837400271887565,
+    "macro_precision": 0.6835474195838682,
+    "macro_recall": 0.6866666666666666,
+    "test_samples": 3600,
+    "diagnostics": {
+      "train_metrics": {
+        "accuracy": 0.7403571428571428,
+        "macro_f1": 0.7380354689266405,
+        "macro_precision": 0.739800064112664,
+        "macro_recall": 0.7403571428571428
+      },
+      "train_test_gap": {
+        "accuracy": 0.05369047619047618,
+        "macro_f1": 0.05429544173788403
+      },
+      "overfitting_risk": "high",
+      "recall_distribution": {
+        "min": 0.3722222149372101,
+        "max": 0.8777777552604675,
+        "std": 0.1264578402042389,
+        "mean": 0.6866666674613953,
+        "p10": 0.5611110925674438,
+        "p90": 0.8661110997200012,
+        "spread": 0.5055555105209351
+      },
+      "lowest_recall_class": {
+        "class": "Gastroenteritis",
+        "recall": 0.37222222222222223
+      },
+      "class_balance_bias_risk": "high",
+      "dataset_realism_warning": false
+    }
+  },
+  "medicine": {
+    "micro_f1": 0.9237072710802167,
+    "macro_f1": 0.8825588628231059,
+    "samples_f1": 0.9292437133827517,
+    "micro_precision": 0.9102945999125492,
+    "micro_recall": 0.9375211093181222,
+    "test_samples": 32960,
+    "num_labels": 474,
+    "threshold": 0.9000000000000002,
+    "diagnostics": {
+      "train_metrics": {
+        "micro_f1": 0.9420950050532497,
+        "macro_f1": 0.9142665610494948,
+        "samples_f1": 0.9469627165142632,
+        "micro_precision": 0.9296317097828157,
+        "micro_recall": 0.9548970248731561
+      },
+      "train_test_gap": {
+        "micro_f1": 0.01838773397303306,
+        "samples_f1": 0.017719003131511535
+      },
+      "overfitting_risk": "low",
+      "label_recall_distribution": {
+        "min": 0.10526315867900848,
+        "max": 1.0,
+        "std": 0.08367127180099487,
+        "mean": 0.9513151049613953,
+        "p10": 0.8813909292221069,
+        "p90": 1.0,
+        "spread": 0.8947368264198303
+      },
+      "label_balance_bias_risk": "high"
+    }
+  },
+  "comparison": {
+    "health": [
+      {
+        "model": "LogisticRegression",
+        "accuracy": 0.6902777777777778,
+        "macro_f1": 0.6885380017891919,
+        "macro_precision": 0.6881663490412832,
+        "macro_recall": 0.6902777777777779,
+        "fit_eval_seconds": 0.5781914000399411
+      },
+      {
+        "model": "DiagnoSense-MLP",
+        "accuracy": 0.6866666666666666,
+        "macro_f1": 0.6837400271887565,
+        "macro_precision": 0.6835474195838682,
+        "macro_recall": 0.6866666666666666
+      },
+      {
+        "model": "LinearSVC",
+        "accuracy": 0.6630555555555555,
+        "macro_f1": 0.6593388838289128,
+        "macro_precision": 0.6581231479064698,
+        "macro_recall": 0.6630555555555555,
+        "fit_eval_seconds": 0.7184845000156201
+      },
+      {
+        "model": "MultinomialNB",
+        "accuracy": 0.6508333333333334,
+        "macro_f1": 0.6478849515350948,
+        "macro_precision": 0.6481987131918382,
+        "macro_recall": 0.6508333333333333,
+        "fit_eval_seconds": 0.006215700006578118
+      },
+      {
+        "model": "DummyMostFrequent",
+        "accuracy": 0.05,
+        "macro_f1": 0.0047619047619047615,
+        "macro_precision": 0.0025,
+        "macro_recall": 0.05,
+        "fit_eval_seconds": 0.0008827999699860811
+      }
+    ],
+    "medicine": [
+      {
+        "model": "DiagnoSense-MLP",
+        "micro_f1": 0.9237072710802167,
+        "macro_f1": 0.8825588628231059,
+        "samples_f1": 0.9292437133827517,
+        "micro_precision": 0.9102945999125492,
+        "micro_recall": 0.9375211093181222,
+        "threshold": 0.9000000000000002
+      },
+      {
+        "model": "OVR-SGDLogLoss",
+        "micro_f1": 0.9164780331444244,
+        "macro_f1": 0.8192277804914496,
+        "samples_f1": 0.9109435439035876,
+        "micro_precision": 0.922336508539801,
+        "micro_recall": 0.9106935114647052,
+        "threshold": 0.40000000000000013,
+        "fit_eval_seconds": 30.090795299969614
+      },
+      {
+        "model": "OVR-MultinomialNB",
+        "micro_f1": 0.8372654723510441,
+        "macro_f1": 0.7107584580996372,
+        "samples_f1": 0.8338246576052133,
+        "micro_precision": 0.8403555530352435,
+        "micro_recall": 0.834198033549743,
+        "threshold": 0.9000000000000002,
+        "fit_eval_seconds": 22.634864299965557
+      }
+    ]
+  },
+  "split_metadata": {
+    "seed": 42,
+    "health": {
+      "train_shape": [
+        16800,
+        470
+      ],
+      "val_shape": [
+        3600,
+        470
+      ],
+      "test_shape": [
+        3600,
+        470
+      ],
+      "split_method": "pre_split_csv",
+      "source_files": {
+        "dataset": "symptom_disease_dataset.csv",
+        "train": "symptom_disease_train.csv",
+        "val": "symptom_disease_val.csv",
+        "test": "symptom_disease_test.csv"
+      },
+      "text_overlap_train_val": 15,
+      "text_overlap_train_test": 31,
+      "text_overlap_val_test": 4
+    },
+    "medicine": {
+      "train_shape": [
+        153809,
+        12000
+      ],
+      "val_shape": [
+        32959,
+        12000
+      ],
+      "test_shape": [
+        32960,
+        12000
+      ],
+      "text_overlap_train_val": 0,
+      "text_overlap_train_test": 0,
+      "text_overlap_val_test": 0
+    }
+  },
+  "data_quality": {
+    "seed": 42,
+    "health": {
+      "source_file": "symptom_disease_dataset.csv",
+      "source_schema": "binary_symptom_matrix",
+      "realism_augmented": 0.0,
+      "rows_raw": 24000.0,
+      "disease_classes_raw": 20.0,
+      "rows_removed_exact_duplicates": 0.0,
+      "rows_removed_ambiguous_symptom_keys": 178.0,
+      "rows_clean": 23822.0,
+      "disease_classes_clean": 20.0,
+      "unique_symptom_keys_clean": 23822.0,
+      "avg_symptoms_per_row": 9.948912769708672,
+      "min_class_count_clean": 1174.0,
+      "max_class_count_clean": 1200.0,
+      "class_balance_ratio_clean": 0.9783333333333334
+    },
+    "medicine": {
+      "rows_raw": 248218.0,
+      "rows_after_non_empty_side_effects": 248218.0,
+      "rows_removed_exact_duplicates": 27914.0,
+      "rows_clean": 219728.0,
+      "unique_input_text_clean": 219728.0,
+      "label_classes_kept": 474.0,
+      "avg_labels_per_row": 6.47274812495449,
+      "label_density": 0.013655586761507361,
+      "min_label_frequency_threshold": 75.0
+    }
+  }
+}

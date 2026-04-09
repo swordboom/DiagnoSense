@@ -1,0 +1,44 @@
+{
+  "seed": 42,
+  "health": {
+    "train_shape": [
+      16800,
+      470
+    ],
+    "val_shape": [
+      3600,
+      470
+    ],
+    "test_shape": [
+      3600,
+      470
+    ],
+    "split_method": "pre_split_csv",
+    "source_files": {
+      "dataset": "symptom_disease_dataset.csv",
+      "train": "symptom_disease_train.csv",
+      "val": "symptom_disease_val.csv",
+      "test": "symptom_disease_test.csv"
+    },
+    "text_overlap_train_val": 15,
+    "text_overlap_train_test": 31,
+    "text_overlap_val_test": 4
+  },
+  "medicine": {
+    "train_shape": [
+      153809,
+      12000
+    ],
+    "val_shape": [
+      32959,
+      12000
+    ],
+    "test_shape": [
+      32960,
+      12000
+    ],
+    "text_overlap_train_val": 0,
+    "text_overlap_train_test": 0,
+    "text_overlap_val_test": 0
+  }
+}

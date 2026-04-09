@@ -1,42 +1,75 @@
-import os
+import json
 import pickle
-import torch
-import streamlit as st
-
 import sys
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-sys.path.append(os.path.join(BASE_DIR, "src"))
+from pathlib import Path
 
-from phase4_training import HealthModel, MedicineModel, DEVICE
+import streamlit as st
+import torch
 
-MODELS_DIR = os.path.join(BASE_DIR, "models")
+BASE_DIR = Path(__file__).resolve().parents[2]
+sys.path.append(str(BASE_DIR / "src"))
+
+from phase4_training import DEVICE, HealthModel, MedicineModel
+
+MODELS_DIR = BASE_DIR / "models"
+
+
+def _resolve_artifact(preferred: str, legacy: str) -> Path:
+    preferred_path = MODELS_DIR / preferred
+    if preferred_path.exists():
+        return preferred_path
+    return MODELS_DIR / legacy
+
 
 @st.cache_resource
 def load_health_pipeline():
-    """Load and cache the Health Model and its artifacts."""
-    with open(os.path.join(MODELS_DIR, "health_tfidf.pkl"), "rb") as f:
-        tfidf = pickle.load(f)
-    with open(os.path.join(MODELS_DIR, "disease_label_encoder.pkl"), "rb") as f:
-        encoder = pickle.load(f)
-        
-    num_classes = len(encoder.classes_)
-    model = HealthModel(input_dim=len(tfidf.vocabulary_), num_classes=num_classes).to(DEVICE)
-    model.load_state_dict(torch.load(os.path.join(MODELS_DIR, "health_model.pth"), weights_only=True, map_location=DEVICE))
+    """Load and cache health model + artifacts."""
+    tfidf_path = _resolve_artifact("symptom_disease_tfidf.pkl", "health_tfidf.pkl")
+    encoder_path = _resolve_artifact("symptom_disease_label_encoder.pkl", "disease_label_encoder.pkl")
+    model_path = _resolve_artifact("symptom_disease_model.pth", "health_model.pth")
+
+    with tfidf_path.open("rb") as handle:
+        tfidf = pickle.load(handle)
+    with encoder_path.open("rb") as handle:
+        encoder = pickle.load(handle)
+
+    model = HealthModel(input_dim=len(tfidf.vocabulary_), num_classes=len(encoder.classes_)).to(DEVICE)
+    model.load_state_dict(torch.load(model_path, map_location=DEVICE, weights_only=True))
     model.eval()
-    
+
     return model, tfidf, encoder
+
 
 @st.cache_resource
 def load_medicine_pipeline():
-    """Load and cache the Medicine Model and its artifacts."""
-    with open(os.path.join(MODELS_DIR, "medicine_tfidf.pkl"), "rb") as f:
-        tfidf = pickle.load(f)
-    with open(os.path.join(MODELS_DIR, "medicine_se_mlb.pkl"), "rb") as f:
-        mlb = pickle.load(f)
-        
-    num_labels = len(mlb.classes_)
-    model = MedicineModel(input_dim=len(tfidf.vocabulary_), num_labels=num_labels).to(DEVICE)
-    model.load_state_dict(torch.load(os.path.join(MODELS_DIR, "medicine_model.pth"), weights_only=True, map_location=DEVICE))
+    """Load and cache medicine model + artifacts."""
+    with (MODELS_DIR / "medicine_tfidf.pkl").open("rb") as handle:
+        tfidf = pickle.load(handle)
+    with (MODELS_DIR / "medicine_se_mlb.pkl").open("rb") as handle:
+        mlb = pickle.load(handle)
+
+    model = MedicineModel(input_dim=len(tfidf.vocabulary_), num_labels=len(mlb.classes_)).to(DEVICE)
+    model.load_state_dict(
+        torch.load(MODELS_DIR / "medicine_model.pth", map_location=DEVICE, weights_only=True)
+    )
     model.eval()
-    
+
     return model, tfidf, mlb
+
+
+@st.cache_data
+def load_medicine_threshold_settings():
+    """Load tuned threshold and fallback behavior for medicine inference."""
+    default = {"global_threshold": 0.5, "fallback_top_k": 5}
+    path = MODELS_DIR / "medicine_threshold.json"
+    if not path.exists():
+        return default
+
+    with path.open("r", encoding="utf-8") as handle:
+        payload = json.load(handle)
+
+    return {
+        "global_threshold": float(payload.get("global_threshold", default["global_threshold"])),
+        "fallback_top_k": int(payload.get("fallback_top_k", default["fallback_top_k"])),
+    }
+

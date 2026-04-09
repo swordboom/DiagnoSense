@@ -1,0 +1,30 @@
+{
+  "seed": 42,
+  "health": {
+    "source_file": "symptom_disease_dataset.csv",
+    "source_schema": "binary_symptom_matrix",
+    "realism_augmented": 0.0,
+    "rows_raw": 24000.0,
+    "disease_classes_raw": 20.0,
+    "rows_removed_exact_duplicates": 0.0,
+    "rows_removed_ambiguous_symptom_keys": 178.0,
+    "rows_clean": 23822.0,
+    "disease_classes_clean": 20.0,
+    "unique_symptom_keys_clean": 23822.0,
+    "avg_symptoms_per_row": 9.948912769708672,
+    "min_class_count_clean": 1174.0,
+    "max_class_count_clean": 1200.0,
+    "class_balance_ratio_clean": 0.9783333333333334
+  },
+  "medicine": {
+    "rows_raw": 248218.0,
+    "rows_after_non_empty_side_effects": 248218.0,
+    "rows_removed_exact_duplicates": 27914.0,
+    "rows_clean": 219728.0,
+    "unique_input_text_clean": 219728.0,
+    "label_classes_kept": 474.0,
+    "avg_labels_per_row": 6.47274812495449,
+    "label_density": 0.013655586761507361,
+    "min_label_frequency_threshold": 75.0
+  }
+}

@@ -1,50 +1,66 @@
-import pandas as pd
-import numpy as np
-import os
+from pathlib import Path
 
-data = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data")
+import numpy as np
+import pandas as pd
+
+BASE_DIR = Path(__file__).resolve().parents[1]
+DATA_DIR = BASE_DIR / "data"
+MODELS_DIR = BASE_DIR / "models"
 
 print("=== Verifying Phase 2 Output ===\n")
 
-# Health dataset
-h = pd.read_csv(os.path.join(data, "health_cleaned.csv"))
-print("--- Health Dataset (Cleaned) ---")
-print(f"Shape: {h.shape}")
-print(f"Columns: {list(h.columns)}")
-n_diseases = h["disease_encoded"].nunique()
-print(f"Diseases: {n_diseases}")
-print(f"\nDisease distribution:")
-for disease, count in h["Disease"].value_counts().items():
-    pct = count / len(h) * 100
-    bar = "#" * int(pct / 2)
-    print(f"  {disease:50s}: {count:5d} ({pct:5.1f}%) {bar}")
+# Symptom-disease splits
+train_path = DATA_DIR / "symptom_disease_train.csv"
+val_path = DATA_DIR / "symptom_disease_val.csv"
+test_path = DATA_DIR / "symptom_disease_test.csv"
+health_full_path = DATA_DIR / "symptom_disease_dataset.csv"
 
-print(f"\nSample rows:")
-for i in range(3):
-    print(f"  [{i}] {h['Disease'].iloc[i]} | symptoms: {h['symptoms_text'].iloc[i][:70]}...")
+if train_path.exists() and val_path.exists() and test_path.exists():
+    train = pd.read_csv(train_path)
+    val = pd.read_csv(val_path)
+    test = pd.read_csv(test_path)
+    full = pd.read_csv(health_full_path) if health_full_path.exists() else pd.concat([train, val, test], ignore_index=True)
 
-print(f"\n--- Drug Side Effects (Cleaned) ---")
-d = pd.read_csv(os.path.join(data, "drug_side_effects_cleaned.csv"))
-print(f"Shape: {d.shape}")
-print(f"Columns: {list(d.columns)}")
+    disease_col = next(col for col in train.columns if str(col).strip().lower() == "disease")
+    symptom_cols = [col for col in train.columns if col != disease_col]
 
-y = np.load(os.path.join(data, "drug_side_effects_labels.npy"))
-print(f"Label matrix: {y.shape}")
-print(f"Avg labels/sample: {y.sum(axis=1).mean():.1f}")
-print(f"Label density: {y.sum() / y.size * 100:.2f}%")
+    print("--- Symptom-Disease Splits ---")
+    print(f"Train shape: {train.shape}")
+    print(f"Val shape: {val.shape}")
+    print(f"Test shape: {test.shape}")
+    print(f"Full shape: {full.shape}")
+    print(f"Disease classes: {full[disease_col].nunique()}")
+    print(f"Symptom features: {len(symptom_cols)}")
 
-print(f"\nSample rows:")
-for i in range(3):
-    print(f"  [{i}] Drug: {d['drug_name'].iloc[i]} | Input: {d['input_text'].iloc[i][:60]}...")
-    print(f"       SE: {d['side_effects_clean'].iloc[i][:60]}...")
+    print("\nTop disease distribution:")
+    print(full[disease_col].value_counts().head(10).to_string())
+else:
+    print("--- Symptom-Disease Splits ---")
+    print("Split files not found. Expected:")
+    print(f"  {train_path}")
+    print(f"  {val_path}")
+    print(f"  {test_path}")
 
-# Check model files
-models = os.path.join(os.path.dirname(data), "models")
-for fname in ["disease_label_encoder.pkl", "side_effects_mlb.pkl"]:
-    fpath = os.path.join(models, fname)
-    exists = os.path.exists(fpath)
-    size = os.path.getsize(fpath) if exists else 0
-    status = "OK" if exists else "MISSING"
-    print(f"\n  [{status}] {fname} ({size} bytes)")
+# Medicine dataset
+med = pd.read_csv(DATA_DIR / "medicine_cleaned.csv")
+labels = np.load(DATA_DIR / "medicine_labels.npy")
+print("\n--- Medicine Dataset (Cleaned) ---")
+print(f"Shape: {med.shape}")
+print(f"Columns: {list(med.columns)}")
+print(f"Label matrix: {labels.shape}")
+print(f"Avg labels/sample: {labels.sum(axis=1).mean():.2f}")
+print(f"Label density: {labels.mean() * 100:.2f}%")
+
+# Model files check
+artifacts = [
+    "symptom_disease_label_encoder.pkl",
+    "medicine_se_mlb.pkl",
+]
+for fname in artifacts:
+    path = MODELS_DIR / fname
+    status = "OK" if path.exists() else "MISSING"
+    size = path.stat().st_size if path.exists() else 0
+    print(f"  [{status}] {fname} ({size} bytes)")
 
 print("\n=== Phase 2 Verification Complete ===")
+

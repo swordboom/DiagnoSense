@@ -1,87 +1,128 @@
 """
 PHASE 6: API Deployment using FastAPI
-=======================================
-DiagnoSense - ML Pipeline
+=====================================
+Inference service for disease and side-effect prediction.
 """
 
-import os
+from __future__ import annotations
+
+import json
 import pickle
-import torch
+import sys
+from pathlib import Path
+from typing import Dict, List, Optional
+
 import numpy as np
 import pandas as pd
+import torch
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
-from typing import List, Optional
 
-# Since we need the model definitions to load weights:
-import sys
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.append(os.path.join(BASE_DIR, "src"))
-from phase4_training import HealthModel, MedicineModel, DEVICE
-from phase2_cleaning import normalize_text, normalize_symptom
+BASE_DIR = Path(__file__).resolve().parents[1]
+sys.path.append(str(BASE_DIR / "src"))
 
-# ============================================================
-# CONFIG
-# ============================================================
-MODELS_DIR = os.path.join(BASE_DIR, "models")
-DATA_DIR = os.path.join(BASE_DIR, "data")
+from phase2_cleaning import normalize_symptom, normalize_text
+from phase4_training import DEVICE, HealthModel, MedicineModel
+
+
+MODELS_DIR = BASE_DIR / "models"
 
 app = FastAPI(
     title="DiagnoSense AI Inference API",
-    description="GPU-accelerated ML pipeline predicting Diseases from Symptoms, and Side-Effects from Drugs.",
-    version="1.0.0"
+    description="ML service for disease prediction and medicine side-effect prediction.",
+    version="2.0.0",
 )
 
+
 # ============================================================
-# ARTIFACT GLOBALS & LIFESPAN
+# GLOBAL ARTIFACTS
 # ============================================================
-health_model = None
+health_model: Optional[HealthModel] = None
 health_tfidf = None
 disease_encoder = None
 
-medicine_model = None
+medicine_model: Optional[MedicineModel] = None
 medicine_tfidf = None
 medicine_se_mlb = None
+medicine_threshold = 0.5
+medicine_fallback_top_k = 5
+
+
+def _resolve_artifact(preferred: str, legacy: str) -> Path:
+    preferred_path = MODELS_DIR / preferred
+    if preferred_path.exists():
+        return preferred_path
+    return MODELS_DIR / legacy
+
+
+def _load_threshold_settings() -> tuple[float, int]:
+    path = MODELS_DIR / "medicine_threshold.json"
+    if not path.exists():
+        return 0.5, 5
+
+    with path.open("r", encoding="utf-8") as handle:
+        payload = json.load(handle)
+
+    return float(payload.get("global_threshold", 0.5)), int(payload.get("fallback_top_k", 5))
+
 
 @app.on_event("startup")
-async def startup_event():
+async def startup_event() -> None:
     global health_model, health_tfidf, disease_encoder
     global medicine_model, medicine_tfidf, medicine_se_mlb
-    
-    print(f"Loading ML Artifacts to {DEVICE}...")
-    
-    # 1. Load Health Model & Artifacts
-    with open(os.path.join(MODELS_DIR, "health_tfidf.pkl"), "rb") as f:
-        health_tfidf = pickle.load(f)
-    with open(os.path.join(MODELS_DIR, "disease_label_encoder.pkl"), "rb") as f:
-        disease_encoder = pickle.load(f)
-        
-    num_classes = len(disease_encoder.classes_)
-    health_model = HealthModel(input_dim=len(health_tfidf.vocabulary_), num_classes=num_classes).to(DEVICE)
-    health_model.load_state_dict(torch.load(os.path.join(MODELS_DIR, "health_model.pth"), weights_only=True, map_location=DEVICE))
+    global medicine_threshold, medicine_fallback_top_k
+
+    print(f"Loading artifacts on device: {DEVICE}")
+
+    health_tfidf_path = _resolve_artifact("symptom_disease_tfidf.pkl", "health_tfidf.pkl")
+    health_encoder_path = _resolve_artifact("symptom_disease_label_encoder.pkl", "disease_label_encoder.pkl")
+    health_model_path = _resolve_artifact("symptom_disease_model.pth", "health_model.pth")
+
+    with health_tfidf_path.open("rb") as handle:
+        health_tfidf = pickle.load(handle)
+    with health_encoder_path.open("rb") as handle:
+        disease_encoder = pickle.load(handle)
+
+    health_model = HealthModel(
+        input_dim=len(health_tfidf.vocabulary_),
+        num_classes=len(disease_encoder.classes_),
+    ).to(DEVICE)
+    health_model.load_state_dict(torch.load(health_model_path, map_location=DEVICE, weights_only=True))
     health_model.eval()
-    
-    # 2. Load Medicine Model & Artifacts
-    with open(os.path.join(MODELS_DIR, "medicine_tfidf.pkl"), "rb") as f:
-        medicine_tfidf = pickle.load(f)
-    with open(os.path.join(MODELS_DIR, "medicine_se_mlb.pkl"), "rb") as f:
-        medicine_se_mlb = pickle.load(f)
-        
-    num_labels = len(medicine_se_mlb.classes_)
-    medicine_model = MedicineModel(input_dim=len(medicine_tfidf.vocabulary_), num_labels=num_labels).to(DEVICE)
-    medicine_model.load_state_dict(torch.load(os.path.join(MODELS_DIR, "medicine_model.pth"), weights_only=True, map_location=DEVICE))
+
+    with (MODELS_DIR / "medicine_tfidf.pkl").open("rb") as handle:
+        medicine_tfidf = pickle.load(handle)
+    with (MODELS_DIR / "medicine_se_mlb.pkl").open("rb") as handle:
+        medicine_se_mlb = pickle.load(handle)
+
+    medicine_model = MedicineModel(
+        input_dim=len(medicine_tfidf.vocabulary_),
+        num_labels=len(medicine_se_mlb.classes_),
+    ).to(DEVICE)
+    medicine_model.load_state_dict(
+        torch.load(MODELS_DIR / "medicine_model.pth", map_location=DEVICE, weights_only=True)
+    )
     medicine_model.eval()
+
+    medicine_threshold, medicine_fallback_top_k = _load_threshold_settings()
+    print(
+        f"Loaded medicine inference settings: threshold={medicine_threshold:.2f}, "
+        f"fallback_top_k={medicine_fallback_top_k}"
+    )
+
 
 # ============================================================
 # SCHEMAS
 # ============================================================
 class SymptomInput(BaseModel):
     symptoms: List[str]
-    
+
+
 class DiseaseOutput(BaseModel):
     disease: str
     confidence: float
-    all_probabilities: dict
+    all_probabilities: Dict[str, float]
+
 
 class MedicineInput(BaseModel):
     name: str
@@ -90,103 +131,82 @@ class MedicineInput(BaseModel):
     therapeutic_class: Optional[str] = ""
     action_class: Optional[str] = ""
 
+
 class MedicineOutput(BaseModel):
     side_effects: List[str]
-    confidence_scores: dict
+    confidence_scores: Dict[str, float]
+
 
 # ============================================================
 # ENDPOINTS
 # ============================================================
 @app.get("/")
-def home():
+def home() -> Dict[str, str]:
     return {"status": "ok", "message": "DiagnoSense API is running.", "device": str(DEVICE)}
 
+
 @app.post("/predict/disease", response_model=DiseaseOutput)
-def predict_disease(payload: SymptomInput):
-    if not payload.symptoms or len(payload.symptoms) == 0:
+def predict_disease(payload: SymptomInput) -> DiseaseOutput:
+    if not payload.symptoms:
         raise HTTPException(status_code=400, detail="Empty symptoms list provided.")
-        
-    # Preprocess
+    if health_model is None or health_tfidf is None or disease_encoder is None:
+        raise HTTPException(status_code=503, detail="Health artifacts are not loaded.")
+
     clean_symptoms = [normalize_symptom(s) for s in payload.symptoms if pd.notna(s)]
     clean_symptoms = [s for s in clean_symptoms if s is not None]
-    
     if not clean_symptoms:
         raise HTTPException(status_code=400, detail="No viable text after symptom cleaning.")
-        
-    symptoms_str = ', '.join(clean_symptoms)
-    lemmatized = normalize_text(symptoms_str)
-    
-    # Extract features
-    tfidf_vec = health_tfidf.transform([lemmatized])
-    x_tensor = torch.FloatTensor(tfidf_vec.toarray()).to(DEVICE)
-    
-    # Inference
+
+    text = normalize_text(", ".join(clean_symptoms))
+    if not text:
+        raise HTTPException(status_code=400, detail="No valid tokens after preprocessing.")
+
+    tfidf_vec = health_tfidf.transform([text])
+    x_tensor = torch.from_numpy(tfidf_vec.toarray().astype(np.float32)).to(DEVICE)
+
     with torch.no_grad():
         logits = health_model(x_tensor)
         probs = torch.softmax(logits, dim=1).cpu().numpy()[0]
-        
-    # Formatting
-    top_idx = np.argmax(probs)
-    top_disease = disease_encoder.inverse_transform([top_idx])[0]
-    
-    probs_dict = {
-        disease_encoder.inverse_transform([i])[0]: float(probs[i])
-        for i in range(len(probs))
+
+    top_idx = int(np.argmax(probs))
+    top_disease = str(disease_encoder.inverse_transform([top_idx])[0])
+    all_probs = {
+        str(disease_encoder.inverse_transform([i])[0]): float(probs[i]) for i in range(len(probs))
     }
-    
-    return DiseaseOutput(
-        disease=top_disease,
-        confidence=float(probs[top_idx]),
-        all_probabilities=probs_dict
-    )
+
+    return DiseaseOutput(disease=top_disease, confidence=float(probs[top_idx]), all_probabilities=all_probs)
+
 
 @app.post("/predict/side_effects", response_model=MedicineOutput)
-def predict_side_effects(payload: MedicineInput):
-    # Preprocess
-    parts = []
-    if payload.name: parts.append(payload.name.lower())
-    if payload.uses: parts.append(payload.uses.lower())
-    if payload.chemical_class: parts.append(payload.chemical_class.lower())
-    if payload.therapeutic_class: parts.append(payload.therapeutic_class.lower())
-    if payload.action_class: parts.append(payload.action_class.lower())
-    
-    input_str = ' '.join(parts)
-    lemmatized = normalize_text(input_str)
-    
-    if not lemmatized.strip():
+def predict_side_effects(payload: MedicineInput) -> MedicineOutput:
+    if medicine_model is None or medicine_tfidf is None or medicine_se_mlb is None:
+        raise HTTPException(status_code=503, detail="Medicine artifacts are not loaded.")
+
+    parts = [
+        payload.name,
+        payload.uses or "",
+        payload.chemical_class or "",
+        payload.therapeutic_class or "",
+        payload.action_class or "",
+    ]
+    text = normalize_text(" ".join([part.lower().strip() for part in parts if part and part.strip()]))
+    if not text:
         raise HTTPException(status_code=400, detail="Not enough valid text in input payload.")
-        
-    # Extract features
-    tfidf_vec = medicine_tfidf.transform([lemmatized])
-    x_tensor = torch.FloatTensor(tfidf_vec.toarray()).to(DEVICE)
-    
-    # Inference
+
+    tfidf_vec = medicine_tfidf.transform([text])
+    x_tensor = torch.from_numpy(tfidf_vec.toarray().astype(np.float32)).to(DEVICE)
+
     with torch.no_grad():
         logits = medicine_model(x_tensor)
         probs = torch.sigmoid(logits).cpu().numpy()[0]
-        
-    # Formatting
+
     labels = medicine_se_mlb.classes_
-    predicted_indices = np.where(probs > 0.5)[0]
-    
-    side_effects = [labels[i] for i in predicted_indices]
-    
-    # Filter all non-zero probs if requested, or just include those that triggered
-    confidence_dict = {
-        labels[i]: float(probs[i])
-        for i in predicted_indices
-    }
-    
-    # If none crossed threshold, maybe include top 3 with lower confidence
-    if not side_effects:
-        top_k = 3
-        top_indices = probs.argsort()[-top_k:][::-1]
-        confidence_dict = {
-            labels[i]: float(probs[i])
-            for i in top_indices
-        }
-        
-    return MedicineOutput(
-        side_effects=side_effects,
-        confidence_scores=confidence_dict
-    )
+    selected = np.where(probs >= medicine_threshold)[0]
+    if len(selected) == 0:
+        selected = probs.argsort()[-medicine_fallback_top_k:][::-1]
+
+    side_effects = [str(labels[idx]) for idx in selected]
+    scores = {str(labels[idx]): float(probs[idx]) for idx in selected}
+
+    return MedicineOutput(side_effects=side_effects, confidence_scores=scores)
+

@@ -14,7 +14,7 @@ def render_home_page():
     
     st.subheader("Model Overview")
     st.markdown("""
-    1. **Disease Prediction** - Predicts an underlying condition out of 16 disease classes based on a textual profile of comma-separated patient symptoms. Trained on `health_dataset.csv`.
+    1. **Disease Prediction** - Predicts an underlying condition out of 20 disease classes based on symptom patterns. Trained using `symptom_disease_dataset.csv` with explicit splits (`symptom_disease_train/val/test.csv`).
     2. **Medicine Side Effects Prediction** - Given a medicine name and its therapeutic context, simultaneously infers multiple potential side effects across 550 possible labels. Trained on `medicine_dataset.csv` (248,000+ records).
     """)
     

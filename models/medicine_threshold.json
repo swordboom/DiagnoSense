@@ -1,0 +1,5 @@
+{
+  "global_threshold": 0.9000000000000002,
+  "fallback_top_k": 5,
+  "tuning_metric": "micro_f1_on_validation"
+}
