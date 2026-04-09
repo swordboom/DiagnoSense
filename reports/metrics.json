@@ -3,44 +3,44 @@
     "task_type": "single_label_multiclass",
     "primary_metric": {
       "name": "accuracy",
-      "value": 0.6866666666666666,
+      "value": 0.6816666666666666,
       "rationale": "Single-label multiclass task with exactly one disease prediction per sample."
     },
-    "test_accuracy": 0.6866666666666666,
-    "micro_f1": 0.6866666666666666,
-    "macro_f1": 0.6837400271887565,
-    "macro_precision": 0.6835474195838682,
-    "macro_recall": 0.6866666666666666,
-    "roc_auc_micro": 0.9758336521280052,
-    "roc_auc_macro": 0.9736803931124106,
-    "pr_auc_micro": 0.7717789662743693,
-    "pr_auc_macro": 0.7483653205538172,
+    "test_accuracy": 0.6816666666666666,
+    "micro_f1": 0.6816666666666666,
+    "macro_f1": 0.6786138584010217,
+    "macro_precision": 0.6783911683142271,
+    "macro_recall": 0.682285657249343,
+    "roc_auc_micro": 0.9755238365009747,
+    "roc_auc_macro": 0.9730799885523638,
+    "pr_auc_micro": 0.7677980062898018,
+    "pr_auc_macro": 0.7437605427230702,
     "test_samples": 3600,
     "diagnostics": {
       "train_metrics": {
-        "accuracy": 0.7403571428571428,
-        "micro_f1": 0.7403571428571428,
-        "macro_f1": 0.7380354689266405,
-        "macro_precision": 0.739800064112664,
-        "macro_recall": 0.7403571428571428
+        "accuracy": 0.7604879500148766,
+        "micro_f1": 0.7604879500148766,
+        "macro_f1": 0.7585876827059208,
+        "macro_precision": 0.7597150376743006,
+        "macro_recall": 0.7600313839568266
       },
       "train_test_gap": {
-        "accuracy": 0.05369047619047618,
-        "macro_f1": 0.05429544173788403
+        "accuracy": 0.07882128334820993,
+        "macro_f1": 0.07997382430489908
       },
       "overfitting_risk": "high",
       "recall_distribution": {
-        "min": 0.3722222149372101,
-        "max": 0.8777777552604675,
-        "std": 0.1264578402042389,
-        "mean": 0.6866666674613953,
-        "p10": 0.5611110925674438,
-        "p90": 0.8661110997200012,
-        "spread": 0.5055555105209351
+        "min": 0.33862432837486267,
+        "max": 0.8965517282485962,
+        "std": 0.1256760060787201,
+        "mean": 0.6822575330734253,
+        "p10": 0.5483978986740112,
+        "p90": 0.8375164270401001,
+        "spread": 0.5579273700714111
       },
       "lowest_recall_class": {
         "class": "Gastroenteritis",
-        "recall": 0.37222222222222223
+        "recall": 0.3386243386243386
       },
       "class_balance_bias_risk": "high",
       "dataset_realism_warning": false
@@ -50,45 +50,45 @@
     "task_type": "multilabel",
     "primary_metric": {
       "name": "micro_f1",
-      "value": 0.9253997226343735,
+      "value": 0.9263292879678346,
       "rationale": "Multi-label prediction with class imbalance; micro-F1 balances precision and recall over all labels."
     },
-    "subset_accuracy": 0.7863470873786408,
-    "micro_f1": 0.9253997226343735,
-    "macro_f1": 0.8838105923985435,
-    "samples_f1": 0.931774086116748,
-    "micro_precision": 0.9106668422749754,
-    "micro_recall": 0.940617142642699,
-    "roc_auc_micro": 0.9996115818425318,
-    "roc_auc_macro": 0.9991583550286244,
-    "pr_auc_micro": 0.9811243845592883,
-    "pr_auc_macro": 0.9362848218290803,
+    "subset_accuracy": 0.7908980582524272,
+    "micro_f1": 0.9263292879678346,
+    "macro_f1": 0.8854119328337859,
+    "samples_f1": 0.9313563749230346,
+    "micro_precision": 0.9143396347119598,
+    "micro_recall": 0.9386375576988029,
+    "roc_auc_micro": 0.9996065786977463,
+    "roc_auc_macro": 0.9991637582803196,
+    "pr_auc_micro": 0.9808052332173877,
+    "pr_auc_macro": 0.9341342381095765,
     "test_samples": 32960,
     "num_labels": 474,
     "threshold": 0.9000000000000002,
     "labels_used_for_curves": 474,
     "diagnostics": {
       "train_metrics": {
-        "subset_accuracy": 0.8175529390347769,
-        "micro_f1": 0.9442543357629025,
-        "macro_f1": 0.9167765305397391,
-        "samples_f1": 0.9497385035411618,
-        "micro_precision": 0.930454355526942,
-        "micro_recall": 0.9584698258347322
+        "subset_accuracy": 0.8208427335201451,
+        "micro_f1": 0.9441860902916801,
+        "macro_f1": 0.9156861337984669,
+        "samples_f1": 0.9486515455182525,
+        "micro_precision": 0.932565445026178,
+        "micro_recall": 0.9560999982943663
       },
       "train_test_gap": {
-        "micro_f1": 0.018854613128528985,
-        "samples_f1": 0.017964417424413903
+        "micro_f1": 0.017856802323845455,
+        "samples_f1": 0.0172951705952179
       },
       "overfitting_risk": "low",
       "label_recall_distribution": {
-        "min": 0.05263157933950424,
+        "min": 0.10526315867900848,
         "max": 1.0,
-        "std": 0.08721882849931717,
-        "mean": 0.9484685659408569,
-        "p10": 0.8732708692550659,
+        "std": 0.09021379053592682,
+        "mean": 0.9464609026908875,
+        "p10": 0.8736653327941895,
         "p90": 1.0,
-        "spread": 0.9473684430122375
+        "spread": 0.8947368264198303
       },
       "label_balance_bias_risk": "high"
     }
@@ -97,56 +97,56 @@
     "health": [
       {
         "model": "LogisticRegression",
-        "accuracy": 0.6902777777777778,
-        "micro_f1": 0.6902777777777778,
-        "macro_f1": 0.6885380017891919,
-        "macro_precision": 0.6881663490412832,
-        "macro_recall": 0.6902777777777779,
-        "fit_eval_seconds": 1.111196999961976
+        "accuracy": 0.6852777777777778,
+        "micro_f1": 0.6852777777777778,
+        "macro_f1": 0.6827747931781489,
+        "macro_precision": 0.6816718011849454,
+        "macro_recall": 0.6866661106781712,
+        "fit_eval_seconds": 0.5880072999862023
       },
       {
         "model": "DiagnoSense-MLP",
-        "accuracy": 0.6866666666666666,
-        "macro_f1": 0.6837400271887565,
-        "macro_precision": 0.6835474195838682,
-        "macro_recall": 0.6866666666666666
+        "accuracy": 0.6816666666666666,
+        "macro_f1": 0.6786138584010217,
+        "macro_precision": 0.6783911683142271,
+        "macro_recall": 0.682285657249343
       },
       {
         "model": "LinearSVC",
-        "accuracy": 0.6630555555555555,
-        "micro_f1": 0.6630555555555555,
-        "macro_f1": 0.6593388838289128,
-        "macro_precision": 0.6581231479064698,
-        "macro_recall": 0.6630555555555555,
-        "fit_eval_seconds": 1.1772989999735728
+        "accuracy": 0.6602777777777777,
+        "micro_f1": 0.6602777777777777,
+        "macro_f1": 0.655727033497928,
+        "macro_precision": 0.6539724721973632,
+        "macro_recall": 0.6614693643879901,
+        "fit_eval_seconds": 0.7209983000066131
       },
       {
         "model": "MultinomialNB",
-        "accuracy": 0.6508333333333334,
-        "micro_f1": 0.6508333333333334,
-        "macro_f1": 0.6478849515350948,
-        "macro_precision": 0.6481987131918382,
-        "macro_recall": 0.6508333333333333,
-        "fit_eval_seconds": 0.010384199966210872
+        "accuracy": 0.6480555555555556,
+        "micro_f1": 0.6480555555555556,
+        "macro_f1": 0.643194624747837,
+        "macro_precision": 0.6422709652827733,
+        "macro_recall": 0.6491510427295617,
+        "fit_eval_seconds": 0.005899999989196658
       },
       {
         "model": "DummyMostFrequent",
-        "accuracy": 0.05,
-        "micro_f1": 0.05,
-        "macro_f1": 0.0047619047619047615,
-        "macro_precision": 0.0025,
+        "accuracy": 0.052222222222222225,
+        "micro_f1": 0.052222222222222225,
+        "macro_f1": 0.004963041182682154,
+        "macro_precision": 0.0026111111111111114,
         "macro_recall": 0.05,
-        "fit_eval_seconds": 0.0011544000008143485
+        "fit_eval_seconds": 0.0007033000001683831
       }
     ],
     "medicine": [
       {
         "model": "DiagnoSense-MLP",
-        "micro_f1": 0.9253997226343735,
-        "macro_f1": 0.8838105923985435,
-        "samples_f1": 0.931774086116748,
-        "micro_precision": 0.9106668422749754,
-        "micro_recall": 0.940617142642699,
+        "micro_f1": 0.9263292879678346,
+        "macro_f1": 0.8854119328337859,
+        "samples_f1": 0.9313563749230346,
+        "micro_precision": 0.9143396347119598,
+        "micro_recall": 0.9386375576988029,
         "threshold": 0.9000000000000002
       },
       {
@@ -158,7 +158,7 @@
         "micro_precision": 0.922336508539801,
         "micro_recall": 0.9106935114647052,
         "threshold": 0.40000000000000013,
-        "fit_eval_seconds": 129.92727139999624
+        "fit_eval_seconds": 118.47778170002857
       },
       {
         "model": "OVR-MultinomialNB",
@@ -169,7 +169,7 @@
         "micro_precision": 0.8403555530352435,
         "micro_recall": 0.834198033549743,
         "threshold": 0.9000000000000002,
-        "fit_eval_seconds": 38.85177200002363
+        "fit_eval_seconds": 27.09392579999985
       }
     ]
   },
@@ -183,27 +183,47 @@
     "seed": 42,
     "health": {
       "train_shape": [
-        16800,
-        470
+        16805,
+        468
       ],
       "val_shape": [
-        3600,
-        470
+        3595,
+        468
       ],
       "test_shape": [
         3600,
-        470
+        468
       ],
-      "split_method": "pre_split_csv",
+      "split_method": "pre_split_csv_group_enforced_no_overlap",
       "source_files": {
         "dataset": "symptom_disease_dataset.csv",
         "train": "symptom_disease_train.csv",
         "val": "symptom_disease_val.csv",
         "test": "symptom_disease_test.csv"
       },
-      "text_overlap_train_val": 15,
-      "text_overlap_train_test": 31,
-      "text_overlap_val_test": 4
+      "text_overlap_train_val": 0,
+      "text_overlap_train_test": 0,
+      "text_overlap_val_test": 0,
+      "split_details": {
+        "enforced_zero_overlap": true,
+        "rows_total": 24000,
+        "unique_symptom_keys_total": 23909,
+        "split_sizes": {
+          "train": 16805,
+          "val": 3595,
+          "test": 3600
+        },
+        "original_overlap_from_input_splits": {
+          "train_val": 15,
+          "train_test": 31,
+          "val_test": 4
+        },
+        "post_enforcement_overlap": {
+          "train_val": 0,
+          "train_test": 0,
+          "val_test": 0
+        }
+      }
     },
     "medicine": {
       "train_shape": [
