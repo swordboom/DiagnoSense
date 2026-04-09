@@ -131,7 +131,7 @@ def render_comparison_page():
     if health_rows:
         st.markdown("**Health (same split, same features)**")
         health_df = pd.DataFrame(health_rows)
-        health_df = _format_pct(health_df, ["accuracy", "macro_f1", "macro_precision", "macro_recall"])
+        health_df = _format_pct(health_df, ["accuracy", "micro_f1", "macro_f1", "macro_precision", "macro_recall"])
         if "fit_eval_seconds" in health_df.columns:
             health_df = health_df.drop(columns=["fit_eval_seconds"])
         st.dataframe(health_df, use_container_width=True, hide_index=True)
@@ -141,7 +141,22 @@ def render_comparison_page():
     if medicine_rows:
         st.markdown("**Medicine (same split, same features)**")
         med_df = pd.DataFrame(medicine_rows)
-        med_df = _format_pct(med_df, ["micro_f1", "macro_f1", "samples_f1", "micro_precision", "micro_recall"])
+        preferred_cols = [
+            "model",
+            "subset_accuracy",
+            "micro_f1",
+            "macro_f1",
+            "samples_f1",
+            "micro_precision",
+            "micro_recall",
+            "threshold",
+            "fit_eval_seconds",
+        ]
+        med_df = med_df[[col for col in preferred_cols if col in med_df.columns]]
+        med_df = _format_pct(
+            med_df,
+            ["subset_accuracy", "micro_f1", "macro_f1", "samples_f1", "micro_precision", "micro_recall"],
+        )
         if "fit_eval_seconds" in med_df.columns:
             med_df = med_df.drop(columns=["fit_eval_seconds"])
         if "threshold" in med_df.columns:

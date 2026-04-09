@@ -773,7 +773,10 @@ def write_reports(
 
     health_comparison = sorted(
         [
-            {"model": "DiagnoSense-MLP", **{k: health[k] for k in ("accuracy", "macro_f1", "macro_precision", "macro_recall")}}
+            {
+                "model": "DiagnoSense-MLP",
+                **{k: health[k] for k in ("accuracy", "micro_f1", "macro_f1", "macro_precision", "macro_recall")},
+            }
         ]
         + health_baselines,
         key=lambda row: float(row["macro_f1"]),
@@ -784,7 +787,17 @@ def write_reports(
         [
             {
                 "model": "DiagnoSense-MLP",
-                **{k: medicine[k] for k in ("micro_f1", "macro_f1", "samples_f1", "micro_precision", "micro_recall")},
+                **{
+                    k: medicine[k]
+                    for k in (
+                        "subset_accuracy",
+                        "micro_f1",
+                        "macro_f1",
+                        "samples_f1",
+                        "micro_precision",
+                        "micro_recall",
+                    )
+                },
                 "threshold": medicine["threshold"],
             }
         ]
@@ -863,8 +876,17 @@ def write_reports(
     )
     medicine_table = _build_markdown_table(
         rows=medicine_comparison,
-        columns=["model", "micro_f1", "macro_f1", "samples_f1", "micro_precision", "micro_recall", "threshold"],
-        percentage_cols=["micro_f1", "macro_f1", "samples_f1", "micro_precision", "micro_recall"],
+        columns=[
+            "model",
+            "subset_accuracy",
+            "micro_f1",
+            "macro_f1",
+            "samples_f1",
+            "micro_precision",
+            "micro_recall",
+            "threshold",
+        ],
+        percentage_cols=["subset_accuracy", "micro_f1", "macro_f1", "samples_f1", "micro_precision", "micro_recall"],
     )
 
     content = f"""# DiagnoSense Evaluation Report

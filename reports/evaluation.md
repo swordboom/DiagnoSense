@@ -106,11 +106,11 @@ Allergic_Rhinitis       0.72      0.71      0.71       179
 | DummyMostFrequent | 5.22% | 0.50% | 0.26% | 5.00% |
 
 ### Medicine (Multi-Label)
-| model | micro_f1 | macro_f1 | samples_f1 | micro_precision | micro_recall | threshold |
-| --- | --- | --- | --- | --- | --- | --- |
-| DiagnoSense-MLP | 92.63% | 88.54% | 93.14% | 91.43% | 93.86% | 0.9000 |
-| OVR-SGDLogLoss | 91.65% | 81.92% | 91.09% | 92.23% | 91.07% | 0.4000 |
-| OVR-MultinomialNB | 83.73% | 71.08% | 83.38% | 84.04% | 83.42% | 0.9000 |
+| model | subset_accuracy | micro_f1 | macro_f1 | samples_f1 | micro_precision | micro_recall | threshold |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| DiagnoSense-MLP | 79.09% | 92.63% | 88.54% | 93.14% | 91.43% | 93.86% | 0.9000 |
+| OVR-SGDLogLoss | 75.36% | 91.65% | 81.92% | 91.09% | 92.23% | 91.07% | 0.4000 |
+| OVR-MultinomialNB | 45.91% | 83.73% | 71.08% | 83.38% | 84.04% | 83.42% | 0.9000 |
 
 ## Visualization Artifacts
 - Health confusion matrix: `./plots/health_confusion_matrix.png`

@@ -102,11 +102,12 @@
         "macro_f1": 0.6827747931781489,
         "macro_precision": 0.6816718011849454,
         "macro_recall": 0.6866661106781712,
-        "fit_eval_seconds": 0.5880072999862023
+        "fit_eval_seconds": 0.5894774000043981
       },
       {
         "model": "DiagnoSense-MLP",
         "accuracy": 0.6816666666666666,
+        "micro_f1": 0.6816666666666666,
         "macro_f1": 0.6786138584010217,
         "macro_precision": 0.6783911683142271,
         "macro_recall": 0.682285657249343
@@ -118,7 +119,7 @@
         "macro_f1": 0.655727033497928,
         "macro_precision": 0.6539724721973632,
         "macro_recall": 0.6614693643879901,
-        "fit_eval_seconds": 0.7209983000066131
+        "fit_eval_seconds": 0.691364899976179
       },
       {
         "model": "MultinomialNB",
@@ -127,7 +128,7 @@
         "macro_f1": 0.643194624747837,
         "macro_precision": 0.6422709652827733,
         "macro_recall": 0.6491510427295617,
-        "fit_eval_seconds": 0.005899999989196658
+        "fit_eval_seconds": 0.0058401000569574535
       },
       {
         "model": "DummyMostFrequent",
@@ -136,12 +137,13 @@
         "macro_f1": 0.004963041182682154,
         "macro_precision": 0.0026111111111111114,
         "macro_recall": 0.05,
-        "fit_eval_seconds": 0.0007033000001683831
+        "fit_eval_seconds": 0.0006858999840915203
       }
     ],
     "medicine": [
       {
         "model": "DiagnoSense-MLP",
+        "subset_accuracy": 0.7908980582524272,
         "micro_f1": 0.9263292879678346,
         "macro_f1": 0.8854119328337859,
         "samples_f1": 0.9313563749230346,
@@ -158,7 +160,7 @@
         "micro_precision": 0.922336508539801,
         "micro_recall": 0.9106935114647052,
         "threshold": 0.40000000000000013,
-        "fit_eval_seconds": 118.47778170002857
+        "fit_eval_seconds": 135.48647329997038
       },
       {
         "model": "OVR-MultinomialNB",
@@ -169,7 +171,7 @@
         "micro_precision": 0.8403555530352435,
         "micro_recall": 0.834198033549743,
         "threshold": 0.9000000000000002,
-        "fit_eval_seconds": 27.09392579999985
+        "fit_eval_seconds": 27.356817000021692
       }
     ]
   },
