@@ -5,6 +5,8 @@ DiagnoSense is a dual-pipeline medical ML project with:
 - Medicine context -> Side effects prediction (multi-label)
 
 This version uses leakage-safe splits, tuned thresholding for medicine inference, and benchmark reporting in Phase 5.
+Health splits are now re-grouped in Phase 3 by symptom signature to enforce zero train/val/test overlap.
+Training is run in deterministic mode (fixed seeds + deterministic PyTorch settings) for better run-to-run reproducibility.
 
 ## Metric Interpretation
 

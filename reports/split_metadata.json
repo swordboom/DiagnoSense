@@ -2,27 +2,47 @@
   "seed": 42,
   "health": {
     "train_shape": [
-      16800,
-      470
+      16805,
+      468
     ],
     "val_shape": [
-      3600,
-      470
+      3595,
+      468
     ],
     "test_shape": [
       3600,
-      470
+      468
     ],
-    "split_method": "pre_split_csv",
+    "split_method": "pre_split_csv_group_enforced_no_overlap",
     "source_files": {
       "dataset": "symptom_disease_dataset.csv",
       "train": "symptom_disease_train.csv",
       "val": "symptom_disease_val.csv",
       "test": "symptom_disease_test.csv"
     },
-    "text_overlap_train_val": 15,
-    "text_overlap_train_test": 31,
-    "text_overlap_val_test": 4
+    "text_overlap_train_val": 0,
+    "text_overlap_train_test": 0,
+    "text_overlap_val_test": 0,
+    "split_details": {
+      "enforced_zero_overlap": true,
+      "rows_total": 24000,
+      "unique_symptom_keys_total": 23909,
+      "split_sizes": {
+        "train": 16805,
+        "val": 3595,
+        "test": 3600
+      },
+      "original_overlap_from_input_splits": {
+        "train_val": 15,
+        "train_test": 31,
+        "val_test": 4
+      },
+      "post_enforcement_overlap": {
+        "train_val": 0,
+        "train_test": 0,
+        "val_test": 0
+      }
+    }
   },
   "medicine": {
     "train_shape": [

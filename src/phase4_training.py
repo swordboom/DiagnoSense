@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import pickle
 import random
 from dataclasses import dataclass
@@ -26,10 +27,24 @@ from torch.utils.data import DataLoader, Dataset
 # CONFIG
 # ============================================================
 SEED = 42
-random.seed(SEED)
-np.random.seed(SEED)
-torch.manual_seed(SEED)
-torch.cuda.manual_seed_all(SEED)
+os.environ.setdefault("PYTHONHASHSEED", str(SEED))
+os.environ.setdefault("CUBLAS_WORKSPACE_CONFIG", ":4096:8")
+
+
+def _enable_determinism(seed: int = SEED) -> None:
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+    if torch.cuda.is_available():
+        torch.backends.cuda.matmul.allow_tf32 = False
+        torch.backends.cudnn.allow_tf32 = False
+        torch.backends.cudnn.benchmark = False
+        torch.backends.cudnn.deterministic = True
+    torch.use_deterministic_algorithms(True, warn_only=True)
+
+
+_enable_determinism(SEED)
 
 BASE_DIR = Path(__file__).resolve().parents[1]
 DATA_DIR = BASE_DIR / "data"
@@ -54,6 +69,7 @@ def print_device_banner() -> None:
     print(f"  PHASE 4: TRAINING ON DEVICE => {DEVICE}")
     if DEVICE.type == "cuda":
         print(f"  GPU => {torch.cuda.get_device_name(0)}")
+    print("  Deterministic mode => enabled")
     print("=" * 70)
 
 
@@ -225,12 +241,15 @@ def _train_one_model(
 
 
 def _build_loader(dataset: Dataset, shuffle: bool) -> DataLoader:
+    generator = torch.Generator()
+    generator.manual_seed(SEED + (1 if shuffle else 2))
     return DataLoader(
         dataset,
         batch_size=BATCH_SIZE,
         shuffle=shuffle,
         num_workers=0,
         pin_memory=(DEVICE.type == "cuda"),
+        generator=generator,
     )
 
 
@@ -383,4 +402,3 @@ if __name__ == "__main__":
     medicine_result = train_medicine_pipeline() if run_medicine else None
     save_training_history(symptom_disease_info=health_result, medicine_info=medicine_result)
     print("\n  [DONE] PHASE 4 COMPLETE")
-

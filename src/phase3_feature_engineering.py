@@ -106,6 +106,96 @@ def _find_column_case_insensitive(df: pd.DataFrame, target: str) -> str:
     raise ValueError(f"Missing required column '{target}' in split file. Found: {list(df.columns)}")
 
 
+def _symptom_signature(values: np.ndarray) -> np.ndarray:
+    binary = (values > 0.5).astype(np.uint8)
+    return np.array(["".join(row.astype(str).tolist()) for row in binary], dtype=object)
+
+
+def _build_health_aligned_dataframe(df: pd.DataFrame, feature_cols: list[str]) -> pd.DataFrame:
+    disease_col = _find_column_case_insensitive(df, "disease")
+    lower_map = {str(col).strip().lower(): str(col) for col in df.columns if str(col) != disease_col}
+
+    aligned = pd.DataFrame(index=df.index)
+    for feat in feature_cols:
+        src_col = lower_map.get(str(feat).strip().lower())
+        if src_col is None:
+            aligned[feat] = 0.0
+        else:
+            aligned[feat] = pd.to_numeric(df[src_col], errors="coerce").fillna(0.0)
+
+    aligned["disease"] = df[disease_col].astype(str).str.strip()
+    return aligned
+
+
+def _enforce_zero_overlap_health_splits(
+    train_df: pd.DataFrame,
+    val_df: pd.DataFrame,
+    test_df: pd.DataFrame,
+) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, Dict[str, object]]:
+    disease_col = _find_column_case_insensitive(train_df, "disease")
+    base_feature_cols = [str(col) for col in train_df.columns if str(col) != disease_col]
+    if not base_feature_cols:
+        raise ValueError("Health split files have no symptom feature columns.")
+
+    train_aligned = _build_health_aligned_dataframe(train_df, base_feature_cols)
+    val_aligned = _build_health_aligned_dataframe(val_df, base_feature_cols)
+    test_aligned = _build_health_aligned_dataframe(test_df, base_feature_cols)
+
+    train_aligned["split_origin"] = "train"
+    val_aligned["split_origin"] = "val"
+    test_aligned["split_origin"] = "test"
+    full = pd.concat([train_aligned, val_aligned, test_aligned], axis=0, ignore_index=True)
+    full = full[full["disease"] != ""].copy().reset_index(drop=True)
+
+    values = full[base_feature_cols].to_numpy(dtype=np.float32)
+    full["symptom_key"] = _symptom_signature(values)
+
+    by_origin = {name: set(full.loc[full["split_origin"] == name, "symptom_key"].tolist()) for name in ("train", "val", "test")}
+    original_overlap = {
+        "train_val": int(len(by_origin["train"] & by_origin["val"])),
+        "train_test": int(len(by_origin["train"] & by_origin["test"])),
+        "val_test": int(len(by_origin["val"] & by_origin["test"])),
+    }
+
+    splitter_1 = GroupShuffleSplit(n_splits=1, test_size=0.30, random_state=SEED)
+    train_idx, temp_idx = next(splitter_1.split(full, full["disease"], groups=full["symptom_key"]))
+    temp = full.iloc[temp_idx].copy().reset_index(drop=True)
+
+    splitter_2 = GroupShuffleSplit(n_splits=1, test_size=0.50, random_state=SEED)
+    val_rel, test_rel = next(splitter_2.split(temp, temp["disease"], groups=temp["symptom_key"]))
+
+    train_new = full.iloc[train_idx].copy().reset_index(drop=True)
+    val_new = temp.iloc[val_rel].copy().reset_index(drop=True)
+    test_new = temp.iloc[test_rel].copy().reset_index(drop=True)
+
+    train_keys = set(train_new["symptom_key"].tolist())
+    val_keys = set(val_new["symptom_key"].tolist())
+    test_keys = set(test_new["symptom_key"].tolist())
+    final_overlap = {
+        "train_val": int(len(train_keys & val_keys)),
+        "train_test": int(len(train_keys & test_keys)),
+        "val_test": int(len(val_keys & test_keys)),
+    }
+
+    train_out = train_new[base_feature_cols + ["disease"]].copy()
+    val_out = val_new[base_feature_cols + ["disease"]].copy()
+    test_out = test_new[base_feature_cols + ["disease"]].copy()
+
+    details = {
+        "enforced_zero_overlap": True,
+        "rows_total": int(len(full)),
+        "unique_symptom_keys_total": int(full["symptom_key"].nunique()),
+        "split_sizes": {
+            "train": int(len(train_out)),
+            "val": int(len(val_out)),
+            "test": int(len(test_out)),
+        },
+        "original_overlap_from_input_splits": original_overlap,
+        "post_enforcement_overlap": final_overlap,
+    }
+    return train_out, val_out, test_out, details
+
+
 def _split_to_text_and_labels(df: pd.DataFrame) -> Tuple[np.ndarray, np.ndarray, list[str]]:
     disease_col = _find_column_case_insensitive(df, "disease")
     symptom_cols = [col for col in df.columns if col != disease_col]
@@ -139,9 +229,11 @@ def process_health_dataset() -> Dict[str, Tuple[int, int]]:
     print("=" * 70)
 
     split_paths = _resolve_health_split_paths()
-    train_df = pd.read_csv(split_paths["train"])
-    val_df = pd.read_csv(split_paths["val"])
-    test_df = pd.read_csv(split_paths["test"])
+    train_raw = pd.read_csv(split_paths["train"])
+    val_raw = pd.read_csv(split_paths["val"])
+    test_raw = pd.read_csv(split_paths["test"])
+
+    train_df, val_df, test_df, split_details = _enforce_zero_overlap_health_splits(train_raw, val_raw, test_raw)
 
     X_train_text, y_train_raw, symptom_cols = _split_to_text_and_labels(train_df)
     X_val_text, y_val_raw, _ = _split_to_text_and_labels(val_df)
@@ -156,10 +248,11 @@ def process_health_dataset() -> Dict[str, Tuple[int, int]]:
     with SYMPTOM_DISEASE_ENCODER_PATH.open("wb") as handle:
         pickle.dump(encoder, handle)
 
-    print("  Split source: pre-generated CSV files")
+    print("  Split source: pre-generated CSV files (re-grouped by symptom signature)")
     print(f"  Train file: {split_paths['train'].name}")
     print(f"  Val file  : {split_paths['val'].name}")
     print(f"  Test file : {split_paths['test'].name}")
+    print(f"  Input overlap train-val/test/val-test: {split_details['original_overlap_from_input_splits']}")
     print(f"  Split sizes: train={len(y_train)}, val={len(y_val)}, test={len(y_test)}")
     print(f"  Text overlap train-val: {_overlap_count(X_train_text, X_val_text)}")
     print(f"  Text overlap train-test: {_overlap_count(X_train_text, X_test_text)}")
@@ -197,13 +290,14 @@ def process_health_dataset() -> Dict[str, Tuple[int, int]]:
         "train_text": X_train_text,
         "val_text": X_val_text,
         "test_text": X_test_text,
-        "split_method": "pre_split_csv",
+        "split_method": "pre_split_csv_group_enforced_no_overlap",
         "source_files": {
             "dataset": SYMPTOM_DISEASE_FULL_PATH.name if SYMPTOM_DISEASE_FULL_PATH.exists() else "",
             "train": split_paths["train"].name,
             "val": split_paths["val"].name,
             "test": split_paths["test"].name,
         },
+        "split_details": split_details,
     }
 
 
@@ -286,6 +380,7 @@ def save_split_metadata(health_shapes: Dict | None = None, medicine_shapes: Dict
             "text_overlap_train_val": _overlap_count(health_shapes["train_text"], health_shapes["val_text"]),
             "text_overlap_train_test": _overlap_count(health_shapes["train_text"], health_shapes["test_text"]),
             "text_overlap_val_test": _overlap_count(health_shapes["val_text"], health_shapes["test_text"]),
+            "split_details": health_shapes.get("split_details", {}),
         }
 
     if medicine_shapes is not None:
@@ -332,4 +427,3 @@ if __name__ == "__main__":
     if medicine is not None:
         print(f"  Medicine train/val/test: {medicine['train']} | {medicine['val']} | {medicine['test']}")
     print("\n  [DONE] PHASE 3 COMPLETE")
-
