@@ -14,17 +14,34 @@ import warnings
 from pathlib import Path
 from typing import Dict, List, Tuple
 
+import matplotlib
 import numpy as np
 import scipy.sparse as sp
 import torch
 from sklearn.dummy import DummyClassifier
 from sklearn.exceptions import ConvergenceWarning
 from sklearn.linear_model import LogisticRegression, SGDClassifier
-from sklearn.metrics import accuracy_score, classification_report, f1_score, precision_score, recall_score
+from sklearn.metrics import (
+    accuracy_score,
+    auc,
+    average_precision_score,
+    classification_report,
+    confusion_matrix,
+    f1_score,
+    precision_recall_curve,
+    precision_score,
+    recall_score,
+    roc_auc_score,
+    roc_curve,
+)
 from sklearn.multiclass import OneVsRestClassifier
 from sklearn.naive_bayes import MultinomialNB
+from sklearn.preprocessing import label_binarize
 from sklearn.svm import LinearSVC
 from torch.utils.data import DataLoader
+
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
 
 from phase4_training import DATA_DIR, DEVICE, MODELS_DIR, REPORTS_DIR, HealthModel, MedicineModel, SparseDataset
 
@@ -36,6 +53,12 @@ REPORT_MD_PATH = REPORTS_DIR / "evaluation.md"
 MEDICINE_THRESHOLD_PATH = MODELS_DIR / "medicine_threshold.json"
 SPLIT_METADATA_PATH = REPORTS_DIR / "split_metadata.json"
 DATA_QUALITY_PATH = REPORTS_DIR / "data_quality.json"
+TRAINING_HISTORY_PATH = REPORTS_DIR / "training_history.json"
+PLOTS_DIR = REPORTS_DIR / "plots"
+HEALTH_CONFUSION_MATRIX_PATH = PLOTS_DIR / "health_confusion_matrix.png"
+ROC_CURVES_PATH = PLOTS_DIR / "roc_auc_curves.png"
+PR_CURVES_PATH = PLOTS_DIR / "precision_recall_curves.png"
+LOSS_CURVE_PATH = PLOTS_DIR / "training_validation_loss.png"
 SYMPTOM_DISEASE_PREFIX = "symptom_disease"
 
 
@@ -51,6 +74,20 @@ def _predict_health(X_sparse: sp.csr_matrix, model: HealthModel, batch_size: int
             preds.append(torch.argmax(logits, dim=1).cpu().numpy())
 
     return np.concatenate(preds, axis=0)
+
+
+def _predict_health_probs(X_sparse: sp.csr_matrix, model: HealthModel, batch_size: int = 256) -> np.ndarray:
+    dummy_y = np.zeros(X_sparse.shape[0], dtype=np.int64)
+    loader = DataLoader(SparseDataset(X_sparse, dummy_y, task="multiclass"), batch_size=batch_size, shuffle=False)
+    probs: List[np.ndarray] = []
+
+    model.eval()
+    with torch.no_grad():
+        for batch_x, _ in loader:
+            logits = model(batch_x.to(DEVICE))
+            probs.append(torch.softmax(logits, dim=1).cpu().numpy())
+
+    return np.vstack(probs)
 
 
 def _predict_medicine_probs(X_sparse: sp.csr_matrix, model: MedicineModel, batch_size: int = 256) -> np.ndarray:
@@ -91,6 +128,7 @@ def _tune_global_threshold(y_true: np.ndarray, y_scores: np.ndarray) -> Tuple[fl
 def _evaluate_multiclass(y_true: np.ndarray, y_pred: np.ndarray) -> Dict[str, float]:
     return {
         "accuracy": float(accuracy_score(y_true, y_pred)),
+        "micro_f1": float(f1_score(y_true, y_pred, average="micro", zero_division=0)),
         "macro_f1": float(f1_score(y_true, y_pred, average="macro", zero_division=0)),
         "macro_precision": float(precision_score(y_true, y_pred, average="macro", zero_division=0)),
         "macro_recall": float(recall_score(y_true, y_pred, average="macro", zero_division=0)),
@@ -99,6 +137,7 @@ def _evaluate_multiclass(y_true: np.ndarray, y_pred: np.ndarray) -> Dict[str, fl
 
 def _evaluate_multilabel(y_true: np.ndarray, y_pred: np.ndarray) -> Dict[str, float]:
     return {
+        "subset_accuracy": float(accuracy_score(y_true, y_pred)),
         "micro_f1": float(f1_score(y_true, y_pred, average="micro", zero_division=0)),
         "macro_f1": float(f1_score(y_true, y_pred, average="macro", zero_division=0)),
         "samples_f1": float(f1_score(y_true, y_pred, average="samples", zero_division=0)),
@@ -130,6 +169,285 @@ def _bias_risk_label(spread: float, std: float) -> str:
     return "low"
 
 
+def _ensure_plots_dir() -> None:
+    PLOTS_DIR.mkdir(parents=True, exist_ok=True)
+
+
+def _sanitize_plot_name(text: str) -> str:
+    cleaned = text.replace("_", " ").strip()
+    if len(cleaned) <= 25:
+        return cleaned
+    return cleaned[:22] + "..."
+
+
+def _safe_metric(metric_fn, *args, **kwargs) -> float:
+    try:
+        return float(metric_fn(*args, **kwargs))
+    except ValueError:
+        return float("nan")
+
+
+def _safe_roc_auc_multiclass(y_true_bin: np.ndarray, y_scores: np.ndarray) -> float:
+    try:
+        return float(roc_auc_score(y_true_bin, y_scores, average="macro", multi_class="ovr"))
+    except ValueError:
+        return float("nan")
+
+
+def _compute_health_curve_metrics(y_true: np.ndarray, y_scores: np.ndarray) -> Dict[str, object]:
+    class_ids = np.arange(y_scores.shape[1], dtype=np.int32)
+    y_true_bin = label_binarize(y_true, classes=class_ids)
+    fpr_micro, tpr_micro, _ = roc_curve(y_true_bin.ravel(), y_scores.ravel())
+    precision_micro, recall_micro, _ = precision_recall_curve(y_true_bin.ravel(), y_scores.ravel())
+
+    metrics = {
+        "roc_auc_micro": float(auc(fpr_micro, tpr_micro)),
+        "roc_auc_macro": _safe_roc_auc_multiclass(y_true_bin, y_scores),
+        "pr_auc_micro": _safe_metric(average_precision_score, y_true_bin, y_scores, average="micro"),
+        "pr_auc_macro": _safe_metric(average_precision_score, y_true_bin, y_scores, average="macro"),
+    }
+
+    return {
+        "metrics": metrics,
+        "roc": {"fpr_micro": fpr_micro, "tpr_micro": tpr_micro},
+        "pr": {"recall_micro": recall_micro, "precision_micro": precision_micro},
+        "positive_prevalence": float(np.mean(y_true_bin)),
+    }
+
+
+def _valid_multilabel_indices(y_true: np.ndarray) -> np.ndarray:
+    positives = y_true.sum(axis=0)
+    return np.where((positives > 0) & (positives < y_true.shape[0]))[0]
+
+
+def _compute_medicine_curve_metrics(y_true: np.ndarray, y_scores: np.ndarray) -> Dict[str, object]:
+    valid_idx = _valid_multilabel_indices(y_true)
+    if valid_idx.size == 0:
+        valid_idx = np.arange(y_true.shape[1], dtype=np.int32)
+
+    y_true_valid = y_true[:, valid_idx]
+    y_scores_valid = y_scores[:, valid_idx]
+    fpr_micro, tpr_micro, _ = roc_curve(y_true_valid.ravel(), y_scores_valid.ravel())
+    precision_micro, recall_micro, _ = precision_recall_curve(y_true_valid.ravel(), y_scores_valid.ravel())
+
+    metrics = {
+        "roc_auc_micro": float(auc(fpr_micro, tpr_micro)),
+        "roc_auc_macro": _safe_metric(roc_auc_score, y_true_valid, y_scores_valid, average="macro"),
+        "pr_auc_micro": _safe_metric(average_precision_score, y_true_valid, y_scores_valid, average="micro"),
+        "pr_auc_macro": _safe_metric(average_precision_score, y_true_valid, y_scores_valid, average="macro"),
+        "labels_used_for_curves": int(valid_idx.size),
+    }
+
+    return {
+        "metrics": metrics,
+        "roc": {"fpr_micro": fpr_micro, "tpr_micro": tpr_micro},
+        "pr": {"recall_micro": recall_micro, "precision_micro": precision_micro},
+        "positive_prevalence": float(np.mean(y_true_valid)),
+    }
+
+
+def _plot_health_confusion_matrix(
+    y_true: np.ndarray,
+    y_pred: np.ndarray,
+    class_names: List[str],
+    path: Path,
+    max_classes_to_show: int = 25,
+) -> None:
+    _ensure_plots_dir()
+    cm = confusion_matrix(y_true, y_pred, labels=list(range(len(class_names))), normalize="true")
+
+    if len(class_names) > max_classes_to_show:
+        support = np.bincount(y_true, minlength=len(class_names))
+        top_idx = np.argsort(support)[::-1][:max_classes_to_show]
+        cm = cm[np.ix_(top_idx, top_idx)]
+        labels = [_sanitize_plot_name(str(class_names[i])) for i in top_idx]
+        title_suffix = f" (Top {max_classes_to_show} classes by support)"
+    else:
+        labels = [_sanitize_plot_name(str(x)) for x in class_names]
+        title_suffix = ""
+
+    size = max(10, min(16, 0.45 * len(labels)))
+    fig, ax = plt.subplots(figsize=(size, size))
+    image = ax.imshow(cm, interpolation="nearest", cmap="Blues", vmin=0.0, vmax=1.0)
+    ax.figure.colorbar(image, ax=ax, fraction=0.046, pad=0.04, label="Recall")
+    ax.set_title("Health Confusion Matrix (Row-normalized)" + title_suffix)
+    ax.set_xlabel("Predicted Class")
+    ax.set_ylabel("True Class")
+    ax.set_xticks(np.arange(len(labels)))
+    ax.set_yticks(np.arange(len(labels)))
+    ax.set_xticklabels(labels, rotation=90, fontsize=7)
+    ax.set_yticklabels(labels, fontsize=7)
+    fig.tight_layout()
+    fig.savefig(path, dpi=220, bbox_inches="tight")
+    plt.close(fig)
+
+
+def _plot_roc_curves(health_curves: Dict[str, object], medicine_curves: Dict[str, object], path: Path) -> None:
+    _ensure_plots_dir()
+    fig, axes = plt.subplots(1, 2, figsize=(14, 5.5))
+
+    h_fpr = health_curves["roc"]["fpr_micro"]
+    h_tpr = health_curves["roc"]["tpr_micro"]
+    h_metrics = health_curves["metrics"]
+    axes[0].plot(h_fpr, h_tpr, linewidth=2.2, label=f"Micro ROC (AUC={h_metrics['roc_auc_micro']:.4f})")
+    axes[0].plot([0, 1], [0, 1], linestyle="--", linewidth=1.2, color="gray", label="Random")
+    axes[0].set_title("Health ROC Curve")
+    axes[0].set_xlabel("False Positive Rate")
+    axes[0].set_ylabel("True Positive Rate")
+    axes[0].grid(alpha=0.25)
+    axes[0].legend(loc="lower right")
+    axes[0].text(
+        0.04,
+        0.08,
+        f"Macro AUC: {h_metrics['roc_auc_macro']:.4f}",
+        transform=axes[0].transAxes,
+        fontsize=9,
+        bbox={"facecolor": "white", "alpha": 0.8, "edgecolor": "none"},
+    )
+
+    m_fpr = medicine_curves["roc"]["fpr_micro"]
+    m_tpr = medicine_curves["roc"]["tpr_micro"]
+    m_metrics = medicine_curves["metrics"]
+    axes[1].plot(m_fpr, m_tpr, linewidth=2.2, color="#d95f02", label=f"Micro ROC (AUC={m_metrics['roc_auc_micro']:.4f})")
+    axes[1].plot([0, 1], [0, 1], linestyle="--", linewidth=1.2, color="gray", label="Random")
+    axes[1].set_title("Medicine ROC Curve")
+    axes[1].set_xlabel("False Positive Rate")
+    axes[1].set_ylabel("True Positive Rate")
+    axes[1].grid(alpha=0.25)
+    axes[1].legend(loc="lower right")
+    axes[1].text(
+        0.04,
+        0.08,
+        f"Macro AUC: {m_metrics['roc_auc_macro']:.4f}",
+        transform=axes[1].transAxes,
+        fontsize=9,
+        bbox={"facecolor": "white", "alpha": 0.8, "edgecolor": "none"},
+    )
+
+    fig.suptitle("ROC Curves (Micro + Macro AUC Summary)", fontsize=13)
+    fig.tight_layout()
+    fig.savefig(path, dpi=220, bbox_inches="tight")
+    plt.close(fig)
+
+
+def _plot_pr_curves(health_curves: Dict[str, object], medicine_curves: Dict[str, object], path: Path) -> None:
+    _ensure_plots_dir()
+    fig, axes = plt.subplots(1, 2, figsize=(14, 5.5))
+
+    h_recall = health_curves["pr"]["recall_micro"]
+    h_precision = health_curves["pr"]["precision_micro"]
+    h_metrics = health_curves["metrics"]
+    h_baseline = health_curves["positive_prevalence"]
+    axes[0].plot(h_recall, h_precision, linewidth=2.2, label=f"Micro PR (AP={h_metrics['pr_auc_micro']:.4f})")
+    axes[0].hlines(h_baseline, xmin=0, xmax=1, colors="gray", linestyles="--", linewidth=1.2, label="No-skill")
+    axes[0].set_title("Health Precision-Recall Curve")
+    axes[0].set_xlabel("Recall")
+    axes[0].set_ylabel("Precision")
+    axes[0].set_ylim(0, 1.02)
+    axes[0].grid(alpha=0.25)
+    axes[0].legend(loc="lower left")
+    axes[0].text(
+        0.04,
+        0.08,
+        f"Macro AP: {h_metrics['pr_auc_macro']:.4f}",
+        transform=axes[0].transAxes,
+        fontsize=9,
+        bbox={"facecolor": "white", "alpha": 0.8, "edgecolor": "none"},
+    )
+
+    m_recall = medicine_curves["pr"]["recall_micro"]
+    m_precision = medicine_curves["pr"]["precision_micro"]
+    m_metrics = medicine_curves["metrics"]
+    m_baseline = medicine_curves["positive_prevalence"]
+    axes[1].plot(m_recall, m_precision, linewidth=2.2, color="#d95f02", label=f"Micro PR (AP={m_metrics['pr_auc_micro']:.4f})")
+    axes[1].hlines(m_baseline, xmin=0, xmax=1, colors="gray", linestyles="--", linewidth=1.2, label="No-skill")
+    axes[1].set_title("Medicine Precision-Recall Curve")
+    axes[1].set_xlabel("Recall")
+    axes[1].set_ylabel("Precision")
+    axes[1].set_ylim(0, 1.02)
+    axes[1].grid(alpha=0.25)
+    axes[1].legend(loc="lower left")
+    axes[1].text(
+        0.04,
+        0.08,
+        f"Macro AP: {m_metrics['pr_auc_macro']:.4f}",
+        transform=axes[1].transAxes,
+        fontsize=9,
+        bbox={"facecolor": "white", "alpha": 0.8, "edgecolor": "none"},
+    )
+
+    fig.suptitle("Precision-Recall Curves (Micro + Macro AP Summary)", fontsize=13)
+    fig.tight_layout()
+    fig.savefig(path, dpi=220, bbox_inches="tight")
+    plt.close(fig)
+
+
+def _plot_training_vs_validation_loss(path: Path) -> None:
+    _ensure_plots_dir()
+    history_payload = _load_json_if_exists(TRAINING_HISTORY_PATH)
+    health_history = history_payload.get("health", {}).get("history", [])
+    if not health_history and "symptom_disease" in history_payload:
+        health_history = history_payload.get("symptom_disease", {}).get("history", [])
+    medicine_history = history_payload.get("medicine", {}).get("history", [])
+
+    fig, axes = plt.subplots(1, 2, figsize=(14, 5.2))
+
+    if health_history:
+        x = [int(row["epoch"]) for row in health_history]
+        train = [float(row["train_loss"]) for row in health_history]
+        val = [float(row["val_loss"]) for row in health_history]
+        axes[0].plot(x, train, label="Train Loss", linewidth=2.0)
+        axes[0].plot(x, val, label="Validation Loss", linewidth=2.0)
+        axes[0].set_title("Health Loss Curves")
+        axes[0].set_xlabel("Epoch")
+        axes[0].set_ylabel("Loss")
+        axes[0].grid(alpha=0.25)
+        axes[0].legend()
+    else:
+        axes[0].text(0.5, 0.5, "No health history found", ha="center", va="center")
+        axes[0].set_title("Health Loss Curves")
+        axes[0].set_axis_off()
+
+    if medicine_history:
+        x = [int(row["epoch"]) for row in medicine_history]
+        train = [float(row["train_loss"]) for row in medicine_history]
+        val = [float(row["val_loss"]) for row in medicine_history]
+        axes[1].plot(x, train, label="Train Loss", linewidth=2.0, color="#1b9e77")
+        axes[1].plot(x, val, label="Validation Loss", linewidth=2.0, color="#d95f02")
+        axes[1].set_title("Medicine Loss Curves")
+        axes[1].set_xlabel("Epoch")
+        axes[1].set_ylabel("Loss")
+        axes[1].grid(alpha=0.25)
+        axes[1].legend()
+    else:
+        axes[1].text(0.5, 0.5, "No medicine history found", ha="center", va="center")
+        axes[1].set_title("Medicine Loss Curves")
+        axes[1].set_axis_off()
+
+    fig.suptitle("Training vs Validation Loss", fontsize=13)
+    fig.tight_layout()
+    fig.savefig(path, dpi=220, bbox_inches="tight")
+    plt.close(fig)
+
+
+def generate_visualizations(health: Dict[str, object], medicine: Dict[str, object]) -> Dict[str, str]:
+    _plot_health_confusion_matrix(
+        y_true=np.array(health["y_true"], dtype=np.int32),
+        y_pred=np.array(health["y_pred"], dtype=np.int32),
+        class_names=[str(x) for x in health["class_names"]],
+        path=HEALTH_CONFUSION_MATRIX_PATH,
+    )
+    _plot_roc_curves(health_curves=health["curve_payload"], medicine_curves=medicine["curve_payload"], path=ROC_CURVES_PATH)
+    _plot_pr_curves(health_curves=health["curve_payload"], medicine_curves=medicine["curve_payload"], path=PR_CURVES_PATH)
+    _plot_training_vs_validation_loss(path=LOSS_CURVE_PATH)
+    return {
+        "health_confusion_matrix": str(HEALTH_CONFUSION_MATRIX_PATH.relative_to(REPORTS_DIR).as_posix()),
+        "roc_auc_curves": str(ROC_CURVES_PATH.relative_to(REPORTS_DIR).as_posix()),
+        "precision_recall_curves": str(PR_CURVES_PATH.relative_to(REPORTS_DIR).as_posix()),
+        "training_validation_loss": str(LOSS_CURVE_PATH.relative_to(REPORTS_DIR).as_posix()),
+    }
+
+
 def evaluate_health() -> Dict[str, object]:
     print("\n" + "=" * 70)
     print("  EVALUATING: Health Model")
@@ -151,8 +469,11 @@ def evaluate_health() -> Dict[str, object]:
 
     y_pred_train = _predict_health(X_train, model=model)
     y_pred_test = _predict_health(X_test, model=model)
+    y_prob_test = _predict_health_probs(X_test, model=model)
     train_metrics = _evaluate_multiclass(y_train, y_pred_train)
     primary = _evaluate_multiclass(y_test, y_pred_test)
+    curve_payload = _compute_health_curve_metrics(y_test, y_prob_test)
+    curve_metrics = curve_payload["metrics"]
 
     report = classification_report(
         y_test,
@@ -174,6 +495,8 @@ def evaluate_health() -> Dict[str, object]:
     print(f"  Macro F1   : {primary['macro_f1']:.4f}")
     print(f"  Macro Prec : {primary['macro_precision']:.4f}")
     print(f"  Macro Rec  : {primary['macro_recall']:.4f}")
+    print(f"  ROC AUC    : micro={curve_metrics['roc_auc_micro']:.4f} | macro={curve_metrics['roc_auc_macro']:.4f}")
+    print(f"  PR AUC     : micro={curve_metrics['pr_auc_micro']:.4f} | macro={curve_metrics['pr_auc_macro']:.4f}")
 
     train_test_gap_accuracy = float(train_metrics["accuracy"] - primary["accuracy"])
     train_test_gap_macro_f1 = float(train_metrics["macro_f1"] - primary["macro_f1"])
@@ -205,10 +528,15 @@ def evaluate_health() -> Dict[str, object]:
 
     return {
         **primary,
+        **curve_metrics,
         "test_samples": int(len(y_test)),
         "classification_report": report,
         "classification_report_text": report_text,
         "diagnostics": diagnostics,
+        "class_names": [str(x) for x in class_names],
+        "y_true": y_test.tolist(),
+        "y_pred": y_pred_test.tolist(),
+        "curve_payload": curve_payload,
     }
 
 
@@ -240,6 +568,8 @@ def evaluate_medicine() -> Dict[str, object]:
 
     train_metrics = _evaluate_multilabel(y_train, y_pred_train)
     primary = _evaluate_multilabel(y_test, y_pred_test)
+    curve_payload = _compute_medicine_curve_metrics(y_test, test_probs)
+    curve_metrics = curve_payload["metrics"]
     label_report = classification_report(
         y_test,
         y_pred_test,
@@ -263,6 +593,8 @@ def evaluate_medicine() -> Dict[str, object]:
     print(f"  Micro F1        : {primary['micro_f1']:.4f}")
     print(f"  Macro F1        : {primary['macro_f1']:.4f}")
     print(f"  Samples F1      : {primary['samples_f1']:.4f}")
+    print(f"  ROC AUC         : micro={curve_metrics['roc_auc_micro']:.4f} | macro={curve_metrics['roc_auc_macro']:.4f}")
+    print(f"  PR AUC          : micro={curve_metrics['pr_auc_micro']:.4f} | macro={curve_metrics['pr_auc_macro']:.4f}")
 
     train_test_gap_micro_f1 = float(train_metrics["micro_f1"] - primary["micro_f1"])
     train_test_gap_samples_f1 = float(train_metrics["samples_f1"] - primary["samples_f1"])
@@ -289,12 +621,14 @@ def evaluate_medicine() -> Dict[str, object]:
 
     return {
         **primary,
+        **curve_metrics,
         "test_samples": int(len(y_test)),
         "num_labels": int(len(labels)),
         "threshold": float(best_threshold),
         "threshold_scores": threshold_scores,
         "classification_report": label_report,
         "diagnostics": diagnostics,
+        "curve_payload": curve_payload,
     }
 
 
@@ -311,7 +645,7 @@ def benchmark_health_models() -> List[Dict[str, object]]:
     baselines = [
         ("DummyMostFrequent", DummyClassifier(strategy="most_frequent", random_state=42)),
         ("MultinomialNB", MultinomialNB(alpha=0.1)),
-        ("LogisticRegression", LogisticRegression(max_iter=500, solver="saga", n_jobs=-1, random_state=42)),
+        ("LogisticRegression", LogisticRegression(max_iter=500, solver="saga", n_jobs=1, random_state=42)),
         ("LinearSVC", LinearSVC(random_state=42)),
     ]
 
@@ -352,12 +686,12 @@ def benchmark_medicine_models() -> List[Dict[str, object]]:
     y_test = np.load(DATA_DIR / "medicine_y_test.npy")
 
     baselines = [
-        ("OVR-MultinomialNB", OneVsRestClassifier(MultinomialNB(alpha=0.2), n_jobs=-1)),
+        ("OVR-MultinomialNB", OneVsRestClassifier(MultinomialNB(alpha=0.2), n_jobs=1)),
         (
             "OVR-SGDLogLoss",
             OneVsRestClassifier(
                 SGDClassifier(loss="log_loss", alpha=1e-5, max_iter=35, tol=1e-3, random_state=42),
-                n_jobs=-1,
+                n_jobs=1,
             ),
         ),
     ]
@@ -417,11 +751,20 @@ def _build_markdown_table(rows: List[Dict[str, object]], columns: List[str], per
     return "\n".join([header, separator, *body])
 
 
+def _primary_metric(name: str, value: float, rationale: str) -> Dict[str, object]:
+    return {
+        "name": str(name),
+        "value": float(value),
+        "rationale": str(rationale),
+    }
+
+
 def write_reports(
     health: Dict[str, object],
     medicine: Dict[str, object],
     health_baselines: List[Dict[str, object]],
     medicine_baselines: List[Dict[str, object]],
+    plots: Dict[str, str],
 ) -> None:
     REPORTS_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -460,28 +803,52 @@ def write_reports(
 
     metrics_payload = {
         "health": {
+            "task_type": "single_label_multiclass",
+            "primary_metric": _primary_metric(
+                name="accuracy",
+                value=health["accuracy"],
+                rationale="Single-label multiclass task with exactly one disease prediction per sample.",
+            ),
             "test_accuracy": health["accuracy"],
+            "micro_f1": health["micro_f1"],
             "macro_f1": health["macro_f1"],
             "macro_precision": health["macro_precision"],
             "macro_recall": health["macro_recall"],
+            "roc_auc_micro": health["roc_auc_micro"],
+            "roc_auc_macro": health["roc_auc_macro"],
+            "pr_auc_micro": health["pr_auc_micro"],
+            "pr_auc_macro": health["pr_auc_macro"],
             "test_samples": health["test_samples"],
             "diagnostics": health["diagnostics"],
         },
         "medicine": {
+            "task_type": "multilabel",
+            "primary_metric": _primary_metric(
+                name="micro_f1",
+                value=medicine["micro_f1"],
+                rationale="Multi-label prediction with class imbalance; micro-F1 balances precision and recall over all labels.",
+            ),
+            "subset_accuracy": medicine["subset_accuracy"],
             "micro_f1": medicine["micro_f1"],
             "macro_f1": medicine["macro_f1"],
             "samples_f1": medicine["samples_f1"],
             "micro_precision": medicine["micro_precision"],
             "micro_recall": medicine["micro_recall"],
+            "roc_auc_micro": medicine["roc_auc_micro"],
+            "roc_auc_macro": medicine["roc_auc_macro"],
+            "pr_auc_micro": medicine["pr_auc_micro"],
+            "pr_auc_macro": medicine["pr_auc_macro"],
             "test_samples": medicine["test_samples"],
             "num_labels": medicine["num_labels"],
             "threshold": medicine["threshold"],
+            "labels_used_for_curves": medicine["labels_used_for_curves"],
             "diagnostics": medicine["diagnostics"],
         },
         "comparison": {
             "health": health_comparison,
             "medicine": medicine_comparison,
         },
+        "plots": plots,
         "split_metadata": split_meta,
         "data_quality": quality_meta,
     }
@@ -507,16 +874,26 @@ This report summarizes the final evaluation for the two DiagnoSense pipelines af
 
 - Health pipeline accuracy: **{health['accuracy']:.2%}**
 - Health pipeline macro-F1: **{health['macro_f1']:.2%}**
+- Health ROC-AUC (micro/macro): **{health['roc_auc_micro']:.4f} / {health['roc_auc_macro']:.4f}**
 - Medicine pipeline micro-F1: **{medicine['micro_f1']:.2%}**
 - Medicine pipeline samples-F1: **{medicine['samples_f1']:.2%}**
+- Medicine ROC-AUC (micro/macro): **{medicine['roc_auc_micro']:.4f} / {medicine['roc_auc_macro']:.4f}**
 - Tuned global medicine threshold: **{medicine['threshold']:.2f}**
+
+## Primary Metric Selection
+- Health primary metric: **Accuracy** (single-label multiclass classification with one ground-truth disease per sample).
+- Medicine primary metric: **Micro-F1** (multi-label prediction where each sample can have multiple side effects and labels are imbalanced).
+- Cross-task references: health micro-F1 = **{health['micro_f1']:.2%}**, medicine subset accuracy (exact-match) = **{medicine['subset_accuracy']:.2%}**.
 
 ## Health Pipeline (Symptom -> Disease)
 - Test samples: {health['test_samples']}
 - Accuracy: {health['accuracy']:.4f}
+- Micro F1 (reference): {health['micro_f1']:.4f}
 - Macro precision: {health['macro_precision']:.4f}
 - Macro recall: {health['macro_recall']:.4f}
 - Macro F1: {health['macro_f1']:.4f}
+- ROC-AUC (micro / macro): {health['roc_auc_micro']:.4f} / {health['roc_auc_macro']:.4f}
+- PR-AUC (micro / macro): {health['pr_auc_micro']:.4f} / {health['pr_auc_macro']:.4f}
 
 ### Classification Report
 ```text
@@ -528,11 +905,15 @@ This report summarizes the final evaluation for the two DiagnoSense pipelines af
 - Labels evaluated: {medicine['num_labels']}
 - Threshold tuning metric: validation micro-F1
 - Selected threshold: {medicine['threshold']:.2f}
+- Subset accuracy (exact match, reference): {medicine['subset_accuracy']:.4f}
 - Micro precision: {medicine['micro_precision']:.4f}
 - Micro recall: {medicine['micro_recall']:.4f}
 - Micro F1: {medicine['micro_f1']:.4f}
 - Macro F1: {medicine['macro_f1']:.4f}
 - Samples F1: {medicine['samples_f1']:.4f}
+- ROC-AUC (micro / macro): {medicine['roc_auc_micro']:.4f} / {medicine['roc_auc_macro']:.4f}
+- PR-AUC (micro / macro): {medicine['pr_auc_micro']:.4f} / {medicine['pr_auc_macro']:.4f}
+- Labels used for curve metrics: {medicine['labels_used_for_curves']}
 
 ## Overfitting & Bias Diagnostics
 
@@ -564,6 +945,12 @@ This report summarizes the final evaluation for the two DiagnoSense pipelines af
 ### Medicine (Multi-Label)
 {medicine_table}
 
+## Visualization Artifacts
+- Health confusion matrix: `./{plots['health_confusion_matrix']}`
+- ROC curve + AUC: `./{plots['roc_auc_curves']}`
+- Precision-recall curve: `./{plots['precision_recall_curves']}`
+- Training vs validation loss: `./{plots['training_validation_loss']}`
+
 ## Notes
 - Split metadata and leakage checks: `reports/split_metadata.json`
 - Data quality summary: `reports/data_quality.json`
@@ -580,8 +967,14 @@ This report summarizes the final evaluation for the two DiagnoSense pipelines af
 if __name__ == "__main__":
     health_metrics = evaluate_health()
     medicine_metrics = evaluate_medicine()
+    plot_artifacts = generate_visualizations(health_metrics, medicine_metrics)
     health_baseline_results = benchmark_health_models()
     medicine_baseline_results = benchmark_medicine_models()
-    write_reports(health_metrics, medicine_metrics, health_baseline_results, medicine_baseline_results)
+    write_reports(
+        health_metrics,
+        medicine_metrics,
+        health_baseline_results,
+        medicine_baseline_results,
+        plots=plot_artifacts,
+    )
     print("\n  [DONE] PHASE 5 COMPLETE")
-

@@ -5,16 +5,26 @@ This report summarizes the final evaluation for the two DiagnoSense pipelines af
 
 - Health pipeline accuracy: **68.67%**
 - Health pipeline macro-F1: **68.37%**
-- Medicine pipeline micro-F1: **92.37%**
-- Medicine pipeline samples-F1: **92.92%**
+- Health ROC-AUC (micro/macro): **0.9758 / 0.9737**
+- Medicine pipeline micro-F1: **92.54%**
+- Medicine pipeline samples-F1: **93.18%**
+- Medicine ROC-AUC (micro/macro): **0.9996 / 0.9992**
 - Tuned global medicine threshold: **0.90**
+
+## Primary Metric Selection
+- Health primary metric: **Accuracy** (single-label multiclass classification with one ground-truth disease per sample).
+- Medicine primary metric: **Micro-F1** (multi-label prediction where each sample can have multiple side effects and labels are imbalanced).
+- Cross-task references: health micro-F1 = **68.67%**, medicine subset accuracy (exact-match) = **78.63%**.
 
 ## Health Pipeline (Symptom -> Disease)
 - Test samples: 3600
 - Accuracy: 0.6867
+- Micro F1 (reference): 0.6867
 - Macro precision: 0.6835
 - Macro recall: 0.6867
 - Macro F1: 0.6837
+- ROC-AUC (micro / macro): 0.9758 / 0.9737
+- PR-AUC (micro / macro): 0.7718 / 0.7484
 
 ### Classification Report
 ```text
@@ -52,11 +62,15 @@ Allergic_Rhinitis       0.64      0.70      0.67       180
 - Labels evaluated: 474
 - Threshold tuning metric: validation micro-F1
 - Selected threshold: 0.90
-- Micro precision: 0.9103
-- Micro recall: 0.9375
-- Micro F1: 0.9237
-- Macro F1: 0.8826
-- Samples F1: 0.9292
+- Subset accuracy (exact match, reference): 0.7863
+- Micro precision: 0.9107
+- Micro recall: 0.9406
+- Micro F1: 0.9254
+- Macro F1: 0.8838
+- Samples F1: 0.9318
+- ROC-AUC (micro / macro): 0.9996 / 0.9992
+- PR-AUC (micro / macro): 0.9811 / 0.9363
+- Labels used for curve metrics: 474
 
 ## Overfitting & Bias Diagnostics
 
@@ -72,12 +86,12 @@ Allergic_Rhinitis       0.64      0.70      0.67       180
 - Dataset realism warning (over-separable): **false**
 
 ### Medicine Diagnostics
-- Train micro-F1: 0.9421
-- Train samples-F1: 0.9470
-- Train-test micro-F1 gap: 0.0184
-- Train-test samples-F1 gap: 0.0177
+- Train micro-F1: 0.9443
+- Train samples-F1: 0.9497
+- Train-test micro-F1 gap: 0.0189
+- Train-test samples-F1 gap: 0.0180
 - Overfitting risk: **low**
-- Label recall spread: 0.8947
+- Label recall spread: 0.9474
 - Label balance bias risk proxy: **high**
 
 ## Standard Model Benchmarks (Same Splits)
@@ -94,9 +108,15 @@ Allergic_Rhinitis       0.64      0.70      0.67       180
 ### Medicine (Multi-Label)
 | model | micro_f1 | macro_f1 | samples_f1 | micro_precision | micro_recall | threshold |
 | --- | --- | --- | --- | --- | --- | --- |
-| DiagnoSense-MLP | 92.37% | 88.26% | 92.92% | 91.03% | 93.75% | 0.9000 |
+| DiagnoSense-MLP | 92.54% | 88.38% | 93.18% | 91.07% | 94.06% | 0.9000 |
 | OVR-SGDLogLoss | 91.65% | 81.92% | 91.09% | 92.23% | 91.07% | 0.4000 |
 | OVR-MultinomialNB | 83.73% | 71.08% | 83.38% | 84.04% | 83.42% | 0.9000 |
+
+## Visualization Artifacts
+- Health confusion matrix: `./plots/health_confusion_matrix.png`
+- ROC curve + AUC: `./plots/roc_auc_curves.png`
+- Precision-recall curve: `./plots/precision_recall_curves.png`
+- Training vs validation loss: `./plots/training_validation_loss.png`
 
 ## Notes
 - Split metadata and leakage checks: `reports/split_metadata.json`

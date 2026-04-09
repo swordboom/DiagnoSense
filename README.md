@@ -6,6 +6,14 @@ DiagnoSense is a dual-pipeline medical ML project with:
 
 This version uses leakage-safe splits, tuned thresholding for medicine inference, and benchmark reporting in Phase 5.
 
+## Metric Interpretation
+
+- Health pipeline (`Symptom -> Disease`) is a **single-label multiclass** task, so the primary metric is **Accuracy**.
+- Medicine pipeline (`Context -> Side Effects`) is a **multilabel** task, so the primary metric is **Micro F1**.
+- For cross-task reference in generated reports, we also log:
+  - Health `micro_f1`
+  - Medicine `subset_accuracy` (exact-match accuracy)
+
 ## Project Structure
 
 ```
@@ -47,10 +55,20 @@ DiagnoSense/
 ## Full Pipeline Run
 
 ```bash
-python src/phase3_feature_engineering.py --task symptom_disease
-python src/phase4_training.py --task symptom_disease
+python src/phase2_cleaning.py
+python src/phase3_feature_engineering.py
+python src/phase4_training.py
 python src/phase5_evaluation.py
 ```
+
+## Generated Evaluation Plots
+
+Phase 5 now generates:
+
+- `reports/plots/health_confusion_matrix.png`
+- `reports/plots/roc_auc_curves.png`
+- `reports/plots/precision_recall_curves.png`
+- `reports/plots/training_validation_loss.png`
 
 ## Run Streamlit
 
@@ -63,4 +81,3 @@ streamlit run streamlit_app/app.py
 ```bash
 python run_api.py
 ```
-

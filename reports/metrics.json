@@ -1,13 +1,25 @@
 {
   "health": {
+    "task_type": "single_label_multiclass",
+    "primary_metric": {
+      "name": "accuracy",
+      "value": 0.6866666666666666,
+      "rationale": "Single-label multiclass task with exactly one disease prediction per sample."
+    },
     "test_accuracy": 0.6866666666666666,
+    "micro_f1": 0.6866666666666666,
     "macro_f1": 0.6837400271887565,
     "macro_precision": 0.6835474195838682,
     "macro_recall": 0.6866666666666666,
+    "roc_auc_micro": 0.9758336521280052,
+    "roc_auc_macro": 0.9736803931124106,
+    "pr_auc_micro": 0.7717789662743693,
+    "pr_auc_macro": 0.7483653205538172,
     "test_samples": 3600,
     "diagnostics": {
       "train_metrics": {
         "accuracy": 0.7403571428571428,
+        "micro_f1": 0.7403571428571428,
         "macro_f1": 0.7380354689266405,
         "macro_precision": 0.739800064112664,
         "macro_recall": 0.7403571428571428
@@ -35,35 +47,48 @@
     }
   },
   "medicine": {
-    "micro_f1": 0.9237072710802167,
-    "macro_f1": 0.8825588628231059,
-    "samples_f1": 0.9292437133827517,
-    "micro_precision": 0.9102945999125492,
-    "micro_recall": 0.9375211093181222,
+    "task_type": "multilabel",
+    "primary_metric": {
+      "name": "micro_f1",
+      "value": 0.9253997226343735,
+      "rationale": "Multi-label prediction with class imbalance; micro-F1 balances precision and recall over all labels."
+    },
+    "subset_accuracy": 0.7863470873786408,
+    "micro_f1": 0.9253997226343735,
+    "macro_f1": 0.8838105923985435,
+    "samples_f1": 0.931774086116748,
+    "micro_precision": 0.9106668422749754,
+    "micro_recall": 0.940617142642699,
+    "roc_auc_micro": 0.9996115818425318,
+    "roc_auc_macro": 0.9991583550286244,
+    "pr_auc_micro": 0.9811243845592883,
+    "pr_auc_macro": 0.9362848218290803,
     "test_samples": 32960,
     "num_labels": 474,
     "threshold": 0.9000000000000002,
+    "labels_used_for_curves": 474,
     "diagnostics": {
       "train_metrics": {
-        "micro_f1": 0.9420950050532497,
-        "macro_f1": 0.9142665610494948,
-        "samples_f1": 0.9469627165142632,
-        "micro_precision": 0.9296317097828157,
-        "micro_recall": 0.9548970248731561
+        "subset_accuracy": 0.8175529390347769,
+        "micro_f1": 0.9442543357629025,
+        "macro_f1": 0.9167765305397391,
+        "samples_f1": 0.9497385035411618,
+        "micro_precision": 0.930454355526942,
+        "micro_recall": 0.9584698258347322
       },
       "train_test_gap": {
-        "micro_f1": 0.01838773397303306,
-        "samples_f1": 0.017719003131511535
+        "micro_f1": 0.018854613128528985,
+        "samples_f1": 0.017964417424413903
       },
       "overfitting_risk": "low",
       "label_recall_distribution": {
-        "min": 0.10526315867900848,
+        "min": 0.05263157933950424,
         "max": 1.0,
-        "std": 0.08367127180099487,
-        "mean": 0.9513151049613953,
-        "p10": 0.8813909292221069,
+        "std": 0.08721882849931717,
+        "mean": 0.9484685659408569,
+        "p10": 0.8732708692550659,
         "p90": 1.0,
-        "spread": 0.8947368264198303
+        "spread": 0.9473684430122375
       },
       "label_balance_bias_risk": "high"
     }
@@ -73,10 +98,11 @@
       {
         "model": "LogisticRegression",
         "accuracy": 0.6902777777777778,
+        "micro_f1": 0.6902777777777778,
         "macro_f1": 0.6885380017891919,
         "macro_precision": 0.6881663490412832,
         "macro_recall": 0.6902777777777779,
-        "fit_eval_seconds": 0.5781914000399411
+        "fit_eval_seconds": 1.111196999961976
       },
       {
         "model": "DiagnoSense-MLP",
@@ -88,59 +114,70 @@
       {
         "model": "LinearSVC",
         "accuracy": 0.6630555555555555,
+        "micro_f1": 0.6630555555555555,
         "macro_f1": 0.6593388838289128,
         "macro_precision": 0.6581231479064698,
         "macro_recall": 0.6630555555555555,
-        "fit_eval_seconds": 0.7184845000156201
+        "fit_eval_seconds": 1.1772989999735728
       },
       {
         "model": "MultinomialNB",
         "accuracy": 0.6508333333333334,
+        "micro_f1": 0.6508333333333334,
         "macro_f1": 0.6478849515350948,
         "macro_precision": 0.6481987131918382,
         "macro_recall": 0.6508333333333333,
-        "fit_eval_seconds": 0.006215700006578118
+        "fit_eval_seconds": 0.010384199966210872
       },
       {
         "model": "DummyMostFrequent",
         "accuracy": 0.05,
+        "micro_f1": 0.05,
         "macro_f1": 0.0047619047619047615,
         "macro_precision": 0.0025,
         "macro_recall": 0.05,
-        "fit_eval_seconds": 0.0008827999699860811
+        "fit_eval_seconds": 0.0011544000008143485
       }
     ],
     "medicine": [
       {
         "model": "DiagnoSense-MLP",
-        "micro_f1": 0.9237072710802167,
-        "macro_f1": 0.8825588628231059,
-        "samples_f1": 0.9292437133827517,
-        "micro_precision": 0.9102945999125492,
-        "micro_recall": 0.9375211093181222,
+        "micro_f1": 0.9253997226343735,
+        "macro_f1": 0.8838105923985435,
+        "samples_f1": 0.931774086116748,
+        "micro_precision": 0.9106668422749754,
+        "micro_recall": 0.940617142642699,
         "threshold": 0.9000000000000002
       },
       {
         "model": "OVR-SGDLogLoss",
+        "subset_accuracy": 0.7535800970873786,
         "micro_f1": 0.9164780331444244,
         "macro_f1": 0.8192277804914496,
         "samples_f1": 0.9109435439035876,
         "micro_precision": 0.922336508539801,
         "micro_recall": 0.9106935114647052,
         "threshold": 0.40000000000000013,
-        "fit_eval_seconds": 30.090795299969614
+        "fit_eval_seconds": 129.92727139999624
       },
       {
         "model": "OVR-MultinomialNB",
+        "subset_accuracy": 0.4591019417475728,
         "micro_f1": 0.8372654723510441,
         "macro_f1": 0.7107584580996372,
         "samples_f1": 0.8338246576052133,
         "micro_precision": 0.8403555530352435,
         "micro_recall": 0.834198033549743,
         "threshold": 0.9000000000000002,
-        "fit_eval_seconds": 22.634864299965557
+        "fit_eval_seconds": 38.85177200002363
       }
     ]
+  },
+  "plots": {
+    "health_confusion_matrix": "plots/health_confusion_matrix.png",
+    "roc_auc_curves": "plots/roc_auc_curves.png",
+    "precision_recall_curves": "plots/precision_recall_curves.png",
+    "training_validation_loss": "plots/training_validation_loss.png"
   },
   "split_metadata": {
     "seed": 42,
