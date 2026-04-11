@@ -127,7 +127,7 @@ def _resolve_health_source_path() -> Path:
         return HEALTH_SYNTHETIC_PATH
     raise FileNotFoundError(f"Could not find required health source file: {HEALTH_SYNTHETIC_PATH}")
 
-
+#cleaning symptom string
 def _split_symptom_string(value: object) -> List[str]:
     if pd.isna(value):
         return []
@@ -193,7 +193,7 @@ def _prepare_health_dataframe(path: Path) -> tuple[pd.DataFrame, str]:
     )
     return out, "binary_symptom_matrix"
 
-
+# Making dataset more work efficient
 def _make_synthetic_health_more_realistic(df: pd.DataFrame) -> pd.DataFrame:
     """
     Reduce synthetic shortcut patterns by increasing symptom overlap/noise and
@@ -308,7 +308,7 @@ def _make_synthetic_health_more_realistic(df: pd.DataFrame) -> pd.DataFrame:
     out["symptoms_list"] = out["symptoms_list"].map(_dedupe_preserve_order)
     return out
 
-
+#cleaning health dataset 
 def clean_health_dataset() -> tuple[pd.DataFrame, Dict[str, object]]:
     health_source_path = _resolve_health_source_path()
 
@@ -448,7 +448,7 @@ def _union_lists(values: Iterable[Sequence[str]]) -> List[str]:
                 merged.append(value)
     return merged
 
-
+# cleaning medicine dataset
 def clean_medicine_dataset() -> tuple[pd.DataFrame, np.ndarray, Dict[str, object]]:
     print("\n" + "=" * 70)
     print("  CLEANING DATASET 2: medicine_dataset.csv")
@@ -544,7 +544,7 @@ def clean_medicine_dataset() -> tuple[pd.DataFrame, np.ndarray, Dict[str, object
 
     return save_df, y_matrix, stats
 
-
+# Saving report
 def save_data_quality_report(health_stats: Dict[str, object], medicine_stats: Dict[str, object]) -> None:
     REPORTS_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -580,4 +580,3 @@ if __name__ == "__main__":
     print(f"  Medicine labels  : {med_labels.shape[1]}")
     print(f"  Label density    : {med_labels.mean():.4f}")
     print("\n  [DONE] PHASE 2 COMPLETE")
-
